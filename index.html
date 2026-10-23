@@ -223,7 +223,11 @@ function renderList() {
     return '<div class="req"><b>' + esc(names[r.type] || r.type) + '</b><span class="badge s-' + esc(r.status) + '">' + esc(r.status) + '</span>' +
       '<div>' + esc(r.dates) + (r.part !== 'เต็มวัน' ? ' (' + esc(r.part) + ')' : '') + ' · ' + esc(r.days) + ' วัน</div>' +
       '<div class="hint">' + esc(r.id) + (r.note ? ' · ' + esc(r.note) : '') + '</div>' +
-      (r.status === 'รออนุมัติ' ? '<button class="btn ghost" data-cancel="' + esc(r.id) + '">ยกเลิกใบนี้</button>' : '') + '</div>';
+      (r.status === 'รออนุมัติ' ? '<button class="btn ghost" data-cancel="' + esc(r.id) + '">ยกเลิกใบนี้</button>' : '') +
+      (r.cancelRequested ? '<div class="flag">ส่งคำขอยกเลิกแล้ว รอผู้อนุมัติพิจารณา</div>' : '') +
+      (r.canRequestCancel ? '<button class="btn ghost" data-askcancel="' + esc(r.id) + '">ขอยกเลิก</button>' +
+        '<div class="hidden" id="ask-' + esc(r.id) + '"><textarea maxlength="300" placeholder="เหตุผลที่ขอยกเลิก เช่น หายป่วยแล้ว / เปลี่ยนแผน"></textarea>' +
+        '<button class="btn" data-sendcancel="' + esc(r.id) + '" style="margin-top:8px;padding:10px;font-size:15px">ส่งคำขอยกเลิกถึงผู้อนุมัติ</button></div>' : '') + '</div>';
   }).join('');
 }
 
@@ -332,6 +336,17 @@ $('tabForm').addEventListener('click', function () { this.classList.add('on'); $
 $('tabList').addEventListener('click', function () { this.classList.add('on'); $('tabForm').classList.remove('on'); show('paneForm', false); show('paneList', true); });
 
 $('list').addEventListener('click', function (e) {
+  var ask = e.target.getAttribute('data-askcancel');
+  if (ask) { e.target.classList.add('hidden'); show('ask-' + ask, true); return; }
+  var send = e.target.getAttribute('data-sendcancel');
+  if (send) {
+    var reason = $('ask-' + send).querySelector('textarea').value.trim();
+    if (!reason) { alert('กรุณาใส่เหตุผลที่ขอยกเลิก'); return; }
+    e.target.disabled = true; e.target.textContent = 'กำลังส่ง...';
+    api('requestCancel', { id: send, reason: reason }).then(function () { alert('ส่งคำขอยกเลิกแล้ว ใบลายังมีผลจนกว่าผู้อนุมัติจะอนุมัติให้ยกเลิก'); return loadMe(); })
+      .catch(function (err) { alert(err.message); e.target.disabled = false; e.target.textContent = 'ส่งคำขอยกเลิกถึงผู้อนุมัติ'; });
+    return;
+  }
   var id = e.target.getAttribute('data-cancel');
   if (!id || !confirm('ยกเลิกใบลา ' + id + ' ?')) return;
   e.target.disabled = true;
