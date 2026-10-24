@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ยื่นใบลา</title>
 <!--
-  ฟอร์มยื่นลา (LIFF) ระบบลางาน Phase 2
+  ฟอร์มยื่นลา (LIFF) ระบบลางาน Phase 2.5
   แก้ 2 บรรทัดใน CONFIG ด้านล่างเท่านั้น ค่าทั้งสองไม่ใช่ความลับ (ทุกคำขอต้องผ่านการยืนยันตัวตน LINE ที่ฝั่ง Apps Script)
   ห้ามใส่ Channel access token หรือรหัสลับใดๆ ในไฟล์นี้
 -->
@@ -14,6 +14,7 @@ var CONFIG = {
   LIFF_ID: '2012182171-opVufJsC',              // เช่น 2001234567-AbCdEfGh
   API_URL: 'https://script.google.com/macros/s/AKfycbykdhtSVQ9zuLNOl3aw-snP84cvil4H1kuK44L9dyILk-HcJ7Sv1ZIeWpD8yY6hriOhPg/exec'           // URL ของ Web App ที่ลงท้ายด้วย /exec
 };
+var LIFF_VERSION = '2.5.0';            // ห้ามแก้ (ใช้ตรวจว่าไฟล์ตรงรุ่นกับ Apps Script)
 </script>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
@@ -57,6 +58,16 @@ var CONFIG = {
   .s-รออนุมัติ { background:#fff3cd; color:#7a5b00; } .s-ยกเลิก { background:#eceff1; color:#55606b; }
   .center { text-align:center; padding:40px 16px; color:var(--muted); }
   .hidden { display:none !important; }
+  .rules h4 { margin:12px 0 4px; font-size:15px; }
+  .rules ul { margin:0; padding-left:20px; font-size:14px; }
+  .typeRules { background:#f0f5fb; border-radius:10px; padding:8px 12px; margin-top:10px; font-size:14px; }
+  .typeRules ul { margin:4px 0 0; padding-left:18px; }
+  .check { display:flex; gap:8px; align-items:flex-start; font-weight:400; margin-top:12px; }
+  .check input { margin-top:4px; width:20px; height:20px; flex:none; }
+  .ack { background:var(--err-bg); color:var(--err); border-radius:10px; padding:10px 12px; margin-top:12px; }
+  .mini { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .mini .btn { width:auto; flex:1; margin-top:0; padding:8px; font-size:14px; }
+  .btn.soft { background:#fff; color:var(--text); border:1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -71,12 +82,23 @@ var CONFIG = {
     <h3 style="margin-top:0">ลงทะเบียนครั้งแรก</h3>
     <p class="hint">ใส่รหัส 6 หลักที่ได้รับจากผู้ดูแลระบบ ทำครั้งเดียว</p>
     <input id="regCode" type="text" inputmode="numeric" maxlength="6" placeholder="เช่น 482915">
+    <div class="rules card" id="regRules" style="box-shadow:none;padding:0;margin-top:12px"></div>
+    <label class="check"><input type="checkbox" id="regAccept">ฉันอ่านและยอมรับกติกาการลา และการเก็บข้อมูลส่วนบุคคลข้างต้น</label>
     <button class="btn" id="regBtn">ลงทะเบียน</button>
     <div id="regErr" class="error hidden"></div>
   </section>
 
+  <!-- กติกาเปลี่ยน: ต้องกดยอมรับใหม่ -->
+  <section id="gate" class="card hidden">
+    <h3 style="margin-top:0">กติกาการลา (ฉบับปรับปรุง)</h3>
+    <p class="hint">กรุณาอ่านและกดยอมรับก่อนยื่นลา</p>
+    <div class="rules" id="gateRules"></div>
+    <label class="check"><input type="checkbox" id="gateAccept">ฉันอ่านและยอมรับกติกาการลา และการเก็บข้อมูลส่วนบุคคลข้างต้น</label>
+    <button class="btn" id="gateBtn">ยอมรับ</button>
+  </section>
+
   <section id="app" class="hidden">
-    <div class="tabs"><button id="tabForm" class="on">ยื่นลา</button><button id="tabList">ใบลาของฉัน</button></div>
+    <div class="tabs"><button id="tabForm" class="on">ยื่นลา</button><button id="tabList">ใบลาของฉัน</button><button id="tabRules">กติกา</button></div>
 
     <div id="paneForm">
       <div class="card hidden" id="proxyCard">
@@ -94,6 +116,12 @@ var CONFIG = {
       <div class="card" id="formCard">
         <label for="type">ประเภทการลา</label>
         <select id="type"></select>
+        <div id="typeRules" class="typeRules hidden"></div>
+
+        <div id="catBox" class="hidden">
+          <label for="cat">หมวดลากิจ</label>
+          <select id="cat"></select>
+        </div>
 
         <div class="row2">
           <div><label for="start">วันที่เริ่ม</label><input id="start" type="date"><div class="be" id="startBE"></div></div>
@@ -118,6 +146,7 @@ var CONFIG = {
         <div class="hint">เช่น ใบรับรองแพทย์ รูปหรือ PDF ไม่เกิน 5 MB</div>
 
         <div id="preview" class="preview hidden"></div>
+        <div id="ackBox" class="ack hidden"><label class="check" style="margin:0"><input type="checkbox" id="ack"><span id="ackText"></span></label></div>
         <div id="formErr" class="error hidden"></div>
         <button class="btn" id="submitBtn" disabled>ยื่นใบลา</button>
       </div>
@@ -130,6 +159,7 @@ var CONFIG = {
     </div>
 
     <div id="paneList" class="hidden"><div class="card" id="list"></div></div>
+    <div id="paneRules" class="hidden"><div class="card rules" id="rulesFull"></div></div>
   </section>
 </main>
 
@@ -147,7 +177,7 @@ function beLabel(v) {
 }
 
 function api(action, data) {
-  var body = Object.assign({}, data || {}, { action: action, idToken: ID_TOKEN });
+  var body = Object.assign({}, data || {}, { action: action, idToken: ID_TOKEN, v: LIFF_VERSION });
   // ส่งเป็น text/plain เพื่อให้ Apps Script รับได้โดยไม่ติด CORS
   return fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(body) })
     .then(function (r) { return r.json(); })
@@ -169,29 +199,43 @@ function start() {
 function loadMe() {
   return api('me').then(function (res) {
     show('loading', false);
-    if (!res.registered) { $('who').textContent = 'ยังไม่ได้ลงทะเบียน'; show('register', true); show('app', false); return; }
+    if (!res.registered) {
+      $('who').textContent = 'ยังไม่ได้ลงทะเบียน'; $('regRules').innerHTML = rulesHtml(res.rules);
+      show('register', true); show('app', false); return;
+    }
     ME = res;
     $('who').textContent = res.emp.nick + ' (' + res.emp.id + ')';
     show('testBanner', res.testMode);
-    show('register', false); show('app', true);
+    show('register', false);
+    $('rulesFull').innerHTML = rulesHtml(res.rules);
+    if (!res.rulesAccepted) { $('gateRules').innerHTML = rulesHtml(res.rules); show('gate', true); show('app', false); return; }
+    show('gate', false); show('app', true);
+    if (!$('cat').options.length) $('cat').innerHTML = '<option value="">-- เลือกหมวด --</option>' + res.personalCats.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
     renderProxy(); renderBalances(); renderTypes(); renderList();
     if (!$('start').value) { $('start').value = res.today; $('end').value = res.today; onDatesChanged(); }
   }).catch(function (e) { fatal(e.message); });
 }
 
+function rulesHtml(secs) {
+  return (secs || []).map(function (s) {
+    return '<h4>' + esc(s.title) + '</h4><ul>' + s.items.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+  }).join('');
+}
+
 function proxyEmp() {
   var id = $('forEmp').value;
-  return (ME.staff || []).filter(function (e) { return e.id === id; })[0] || null;
+  return ME.proxy ? (ME.proxy.staff.filter(function (e) { return e.id === id; })[0] || null) : null;
 }
 
 function renderProxy() {
-  show('proxyCard', ME.isApprover && ME.staff && ME.staff.length);
-  if (!ME.isApprover) return;
+  show('proxyCard', !!(ME.proxy && ME.proxy.staff.length));
+  if (!ME.proxy) return;
   var keep = $('forEmp').value;
-  $('forEmp').innerHTML = '<option value="">ตัวเอง (' + esc(ME.emp.nick) + ')</option>' + ME.staff.map(function (e) {
+  $('forEmp').innerHTML = '<option value="">ตัวเอง (' + esc(ME.emp.nick) + ')</option>' + ME.proxy.staff.map(function (e) {
     return '<option value="' + esc(e.id) + '">ยื่นแทน ' + esc(e.nick) + ' (' + esc(e.id) + ')</option>';
   }).join('');
   $('forEmp').value = keep;
+  $('proxyHint').textContent = 'สำหรับกรณีพนักงานป่วยหนักหรือฉุกเฉินจนกดเองไม่ได้ ใบลาจะอนุมัติทันที และแจ้งพนักงานคนนั้นทาง LINE/อีเมล · ' + ME.proxy.note;
 }
 
 function renderBalances() {
@@ -206,14 +250,25 @@ function renderBalances() {
     var left = b.total - b.used - b.pending;
     html += '<div><b>' + left + '</b><span>' + esc(b.name) + '<br>จาก ' + b.total + ' วัน' + (b.pending ? ' (รอ ' + b.pending + ')' : '') + '</span></div>';
   });
-  $('bal').innerHTML = html || '<div style="grid-column:1/-1">ยังไม่มีข้อมูลสิทธิ์</div>';
+  $('bal').innerHTML = html || '<div style="grid-column:1/-1">' + (p && ME.proxy && !ME.isApprover ? 'ผู้อนุมัติแทนไม่เห็นยอดสิทธิ์ของพนักงาน' : 'ยังไม่มีข้อมูลสิทธิ์') + '</div>';
 }
 
+function typeList() { return proxyEmp() ? ME.proxy.types : ME.types; }
+
 function renderTypes() {
-  if ($('type').options.length) return;
-  $('type').innerHTML = '<option value="">-- เลือก --</option>' + ME.types.map(function (t) {
+  var keep = $('type').value, list = typeList();
+  $('type').innerHTML = '<option value="">-- เลือก --</option>' + list.map(function (t) {
     return '<option value="' + esc(t.code) + '">' + esc(t.name) + '</option>';
   }).join('');
+  if (list.some(function (t) { return t.code === keep; })) $('type').value = keep;
+}
+
+function renderTypeRules() {
+  var c = $('type').value, sec = (ME.rules || []).filter(function (s) { return s.code === c; })[0];
+  if (!sec && c && ['SICK', 'PERSONAL', 'VACATION'].indexOf(c) < 0) sec = (ME.rules || []).filter(function (s) { return s.code === 'OTHER'; })[0];
+  $('typeRules').innerHTML = sec ? '<b>กติกา' + esc(sec.title) + '</b><ul>' + sec.items.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '';
+  show('typeRules', !!sec);
+  show('catBox', c === 'PERSONAL');
 }
 
 function renderList() {
@@ -225,19 +280,35 @@ function renderList() {
       '<div class="hint">' + esc(r.id) + (r.note ? ' · ' + esc(r.note) : '') + '</div>' +
       (r.status === 'รออนุมัติ' ? '<button class="btn ghost" data-cancel="' + esc(r.id) + '">ยกเลิกใบนี้</button>' : '') +
       (r.cancelRequested ? '<div class="flag">ส่งคำขอยกเลิกแล้ว รอผู้อนุมัติพิจารณา</div>' : '') +
+      (r.evidenceRequested ? '<div class="flag">ผู้อนุมัติขอหลักฐานการรักษา กด "แนบไฟล์" ด้านล่าง</div>' : '') +
+      (r.shortenRequested ? '<div class="flag">ส่งคำขอลดวันลาแล้ว รอผู้อนุมัติยืนยัน</div>' : '') +
+      (r.files ? '<div class="hint">ไฟล์แนบ ' + r.files + ' ไฟล์</div>' : '') +
+      '<div class="mini">' +
+        (r.canAttach ? '<button class="btn soft" data-attach="' + esc(r.id) + '">แนบไฟล์</button>' : '') +
+        (r.canShorten ? '<button class="btn soft" data-short="' + esc(r.id) + '">กลับมาทำงานก่อน</button>' : '') +
+        (r.canExtend ? '<button class="btn soft" data-extend="' + esc(r.id) + '">ลาต่อ</button>' : '') +
+      '</div>' +
+      (r.canAttach ? '<input type="file" class="hidden" accept="image/*,application/pdf" id="af-' + esc(r.id) + '" data-attachfile="' + esc(r.id) + '">' : '') +
+      (r.canShorten ? '<div class="hidden" id="sh-' + esc(r.id) + '"><label>วันสุดท้ายที่ลาจริง</label><input type="date" min="' + esc(r.shortenMin) + '" max="' + esc(r.shortenMax) + '" value="' + esc(r.shortenMin) + '">' +
+        '<textarea maxlength="300" placeholder="เหตุผล (ถ้ามี) เช่น หายป่วยแล้ว" style="margin-top:8px"></textarea>' +
+        '<button class="btn" data-sendshort="' + esc(r.id) + '" style="margin-top:8px;padding:10px;font-size:15px">ส่งคำขอลดวันลาถึงผู้อนุมัติ</button></div>' : '') +
       (r.canRequestCancel ? '<button class="btn ghost" data-askcancel="' + esc(r.id) + '">ขอยกเลิก</button>' +
         '<div class="hidden" id="ask-' + esc(r.id) + '"><textarea maxlength="300" placeholder="เหตุผลที่ขอยกเลิก เช่น หายป่วยแล้ว / เปลี่ยนแผน"></textarea>' +
         '<button class="btn" data-sendcancel="' + esc(r.id) + '" style="margin-top:8px;padding:10px;font-size:15px">ส่งคำขอยกเลิกถึงผู้อนุมัติ</button></div>' : '') + '</div>';
   }).join('');
 }
 
-function currentType() { var c = $('type').value; return ME.types.filter(function (t) { return t.code === c; })[0]; }
+function nextDay(k) { var p = k.split('-').map(Number), d = new Date(p[0], p[1] - 1, p[2] + 1);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+
+function currentType() { var c = $('type').value; return typeList().filter(function (t) { return t.code === c; })[0]; }
 function currentPart() { var x = document.querySelector('input[name=part]:checked'); return x ? x.value : 'เต็มวัน'; }
 
 function onDatesChanged() {
   if ($('start').value && (!$('end').value || $('end').value < $('start').value)) $('end').value = $('start').value;
   $('startBE').textContent = beLabel($('start').value);
   $('endBE').textContent = beLabel($('end').value);
+  renderTypeRules();
   var t = currentType(), oneDay = $('start').value === $('end').value;
   var canHalf = t && t.halfDay && oneDay;
   show('partBox', !!canHalf);
@@ -252,20 +323,23 @@ function schedulePreview() {
   previewTimer = setTimeout(function () {
     api('preview', formData(false)).then(function (res) {
       var p = res.preview;
+      NEED_ACK = !proxyEmp() && p.remainAfter !== null && p.remainAfter < 0;
+      $('ackText').textContent = 'รับทราบว่าใบนี้เกินสิทธิ์ ' + (p.remainAfter < 0 ? -p.remainAfter : 0) + ' วัน ส่วนที่เกินเป็นการลาโดยไม่ได้รับค่าจ้าง และจะถูกหักจากเงินเดือน';
+      $('ack').checked = false; show('ackBox', NEED_ACK);
       $('preview').innerHTML = '<b>' + esc(p.typeName) + ' ' + p.days + ' วัน</b><div>' + esc(p.dates) + '</div>' +
         (p.remainAfter !== null ? '<div class="hint">คงเหลือหลังลา ' + p.remainAfter + ' วัน</div>' : '') +
         p.flags.map(function (f) { return '<div class="flag">⚠️ ' + esc(f) + '</div>'; }).join('') +
         (p.flags.length ? '<div class="hint">ยังยื่นได้ ผู้อนุมัติจะเห็นข้อสังเกตนี้</div>' : '');
       show('preview', true); show('formErr', false);
-      lastPreviewOk = true; $('submitBtn').disabled = false;
+      lastPreviewOk = true; $('submitBtn').disabled = NEED_ACK;
     }).catch(function (e) { show('preview', false); $('formErr').textContent = e.message; show('formErr', true); });
   }, 400);
 }
 
-var FILE = null;
+var FILE = null, NEED_ACK = false;
 function formData(withFile) {
   var d = { type: $('type').value, start: $('start').value, end: $('end').value, part: currentPart(),
-            reason: $('reason').value, hasFile: !!FILE, forEmp: $('forEmp').value };
+            reason: $('reason').value, hasFile: !!FILE, forEmp: $('forEmp').value, category: $('cat').value, ackUnpaid: $('ack').checked };
   if (withFile && FILE) d.file = FILE;
   return d;
 }
@@ -298,7 +372,8 @@ function readFile(f) {
 }
 
 $('type').addEventListener('change', onDatesChanged);
-$('forEmp').addEventListener('change', function () { renderBalances(); schedulePreview(); });
+$('forEmp').addEventListener('change', function () { renderBalances(); renderTypes(); onDatesChanged(); });
+$('ack').addEventListener('change', function () { $('submitBtn').disabled = !lastPreviewOk || (NEED_ACK && !this.checked); });
 $('start').addEventListener('change', onDatesChanged);
 $('end').addEventListener('change', onDatesChanged);
 document.querySelectorAll('input[name=part]').forEach(function (x) { x.addEventListener('change', schedulePreview); });
@@ -310,6 +385,7 @@ $('file').addEventListener('change', function () {
 
 $('submitBtn').addEventListener('click', function () {
   if (!lastPreviewOk) return;
+  if ($('type').value === 'PERSONAL' && !$('cat').value && !proxyEmp()) { $('formErr').textContent = 'ลากิจต้องเลือกหมวด'; show('formErr', true); return; }
   var btn = this; btn.disabled = true; btn.textContent = 'กำลังส่ง...';
   api('submit', formData(true)).then(function (res) {
     $('doneText').innerHTML = '<div>เลขที่ ' + esc(res.id) + ' จำนวน ' + res.days + ' วัน</div>' +
@@ -317,7 +393,7 @@ $('submitBtn').addEventListener('click', function () {
                  : '<div class="hint">สถานะ: รออนุมัติ ผลจะแจ้งทาง LINE และอีเมล</div>') +
       res.flags.map(function (f) { return '<div class="flag">⚠️ ' + esc(f) + '</div>'; }).join('');
     show('formCard', false); show('doneCard', true);
-    $('reason').value = ''; $('file').value = ''; FILE = null;
+    $('reason').value = ''; $('file').value = ''; FILE = null; $('cat').value = ''; $('ack').checked = false; show('ackBox', false);
     return loadMe();
   }).catch(function (e) { $('formErr').textContent = e.message; show('formErr', true); btn.disabled = false; })
     .then(function () { renderBalances(); });
@@ -327,15 +403,57 @@ $('againBtn').addEventListener('click', function () { show('doneCard', false); s
 
 $('regBtn').addEventListener('click', function () {
   var b = this; b.disabled = true; show('regErr', false);
-  api('register', { code: $('regCode').value.trim() }).then(loadMe)
+  if (!$('regAccept').checked) { $('regErr').textContent = 'กรุณาติ๊กยอมรับกติกาก่อนลงทะเบียน'; show('regErr', true); b.disabled = false; return; }
+  api('register', { code: $('regCode').value.trim(), acceptRules: true }).then(loadMe)
     .catch(function (e) { $('regErr').textContent = e.message; show('regErr', true); })
     .then(function () { b.disabled = false; });
 });
 
-$('tabForm').addEventListener('click', function () { this.classList.add('on'); $('tabList').classList.remove('on'); show('paneForm', true); show('paneList', false); });
-$('tabList').addEventListener('click', function () { this.classList.add('on'); $('tabForm').classList.remove('on'); show('paneForm', false); show('paneList', true); });
+function tab(name) {
+  ['Form', 'List', 'Rules'].forEach(function (n) { $('tab' + n).classList.toggle('on', n === name); show('pane' + n, n === name); });
+}
+$('tabForm').addEventListener('click', function () { tab('Form'); });
+$('tabList').addEventListener('click', function () { tab('List'); });
+$('tabRules').addEventListener('click', function () { tab('Rules'); });
+
+$('gateBtn').addEventListener('click', function () {
+  if (!$('gateAccept').checked) { alert('กรุณาติ๊กยอมรับกติกาก่อน'); return; }
+  var b = this; b.disabled = true;
+  api('acceptRules').then(loadMe).catch(function (e) { alert(e.message); }).then(function () { b.disabled = false; });
+});
+
+$('list').addEventListener('change', function (e) {
+  var id = e.target.getAttribute('data-attachfile');
+  if (!id || !e.target.files[0]) return;
+  readFile(e.target.files[0]).then(function (f) {
+    if (!confirm('แนบไฟล์นี้กับใบลา ' + id + ' ?')) return;
+    return api('attach', { id: id, file: f }).then(function () { alert('แนบไฟล์แล้ว ผู้อนุมัติได้รับแจ้งแล้ว'); return loadMe(); });
+  }).catch(function (err) { alert(err.message); });
+});
 
 $('list').addEventListener('click', function (e) {
+  var att = e.target.getAttribute('data-attach');
+  if (att) { $('af-' + att).click(); return; }
+  var sh = e.target.getAttribute('data-short');
+  if (sh) { e.target.classList.add('hidden'); show('sh-' + sh, true); return; }
+  var ssh = e.target.getAttribute('data-sendshort');
+  if (ssh) {
+    var box = $('sh-' + ssh);
+    e.target.disabled = true;
+    api('requestShorten', { id: ssh, end: box.querySelector('input').value, reason: box.querySelector('textarea').value })
+      .then(function () { alert('ส่งคำขอแล้ว วันลาจะเปลี่ยนเมื่อผู้อนุมัติยืนยัน'); return loadMe(); })
+      .catch(function (err) { alert(err.message); e.target.disabled = false; });
+    return;
+  }
+  var ext = e.target.getAttribute('data-extend');
+  if (ext) {
+    var r = ME.requests.filter(function (x) { return x.id === ext; })[0];
+    tab('Form'); show('doneCard', false); show('formCard', true);
+    $('forEmp').value = ''; renderBalances(); renderTypes();
+    $('type').value = r.type; $('start').value = nextDay(r.end); $('end').value = nextDay(r.end);
+    $('reason').value = 'ลาต่อจาก ' + r.id; onDatesChanged();
+    return;
+  }
   var ask = e.target.getAttribute('data-askcancel');
   if (ask) { e.target.classList.add('hidden'); show('ask-' + ask, true); return; }
   var send = e.target.getAttribute('data-sendcancel');
