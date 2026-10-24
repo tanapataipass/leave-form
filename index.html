@@ -90,8 +90,8 @@ var LIFF_VERSION = '2.5.0';            // ห้ามแก้ (ใช้ตร
 
   <!-- กติกาเปลี่ยน: ต้องกดยอมรับใหม่ -->
   <section id="gate" class="card hidden">
-    <h3 style="margin-top:0">กติกาการลา (ฉบับปรับปรุง)</h3>
-    <p class="hint">กรุณาอ่านและกดยอมรับก่อนยื่นลา</p>
+    <h3 style="margin-top:0">กติกาการลา</h3>
+    <p class="hint" id="gateHint">กรุณาอ่านและกดยอมรับก่อนยื่นลา</p>
     <div class="rules" id="gateRules"></div>
     <label class="check"><input type="checkbox" id="gateAccept">ฉันอ่านและยอมรับกติกาการลา และการเก็บข้อมูลส่วนบุคคลข้างต้น</label>
     <button class="btn" id="gateBtn">ยอมรับ</button>
@@ -208,7 +208,7 @@ function loadMe() {
     show('testBanner', res.testMode);
     show('register', false);
     $('rulesFull').innerHTML = rulesHtml(res.rules);
-    if (!res.rulesAccepted) { $('gateRules').innerHTML = rulesHtml(res.rules); show('gate', true); show('app', false); return; }
+    if (!res.rulesAccepted) { $('gateHint').textContent = res.rulesChanged ? 'กติกามีการเปลี่ยนแปลง กรุณาอ่านและกดยอมรับใหม่ก่อนยื่นลา' : 'กรุณาอ่านและกดยอมรับก่อนยื่นลา'; $('gateRules').innerHTML = rulesHtml(res.rules); show('gate', true); show('app', false); return; }
     show('gate', false); show('app', true);
     if (!$('cat').options.length) $('cat').innerHTML = '<option value="">-- เลือกหมวด --</option>' + res.personalCats.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
     renderProxy(); renderBalances(); renderTypes(); renderList();
