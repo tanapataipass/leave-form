@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ยื่นใบลา</title>
 <!--
-  ฟอร์มยื่นลา (LIFF) ระบบลางาน Phase 2.5
+  ฟอร์มยื่นลา (LIFF) ระบบลางาน Phase 3 (เพิ่มแท็บ ปฏิทิน และ Dashboard สำหรับผู้บริหาร)
+  เปิดแท็บตรงได้ด้วย ?tab=calendar หรือ ?tab=dashboard ต่อท้ายลิงก์ LIFF
   แก้ 2 บรรทัดใน CONFIG ด้านล่างเท่านั้น ค่าทั้งสองไม่ใช่ความลับ (ทุกคำขอต้องผ่านการยืนยันตัวตน LINE ที่ฝั่ง Apps Script)
   ห้ามใส่ Channel access token หรือรหัสลับใดๆ ในไฟล์นี้
 -->
@@ -14,7 +15,7 @@ var CONFIG = {
   LIFF_ID: '2012182171-opVufJsC',              // เช่น 2001234567-AbCdEfGh
   API_URL: 'https://script.google.com/macros/s/AKfycbykdhtSVQ9zuLNOl3aw-snP84cvil4H1kuK44L9dyILk-HcJ7Sv1ZIeWpD8yY6hriOhPg/exec'           // URL ของ Web App ที่ลงท้ายด้วย /exec
 };
-var LIFF_VERSION = '2.5.0';            // ห้ามแก้ (ใช้ตรวจว่าไฟล์ตรงรุ่นกับ Apps Script)
+var LIFF_VERSION = '3.0.0';            // ห้ามแก้ (ใช้ตรวจว่าไฟล์ตรงรุ่นกับ Apps Script)
 </script>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
@@ -48,6 +49,7 @@ var LIFF_VERSION = '2.5.0';            // ห้ามแก้ (ใช้ตร
   .bal b { display:block; font-size:22px; }
   .bal span { font-size:12px; color:var(--muted); }
   .preview { border-radius:10px; padding:10px 12px; margin-top:14px; background:#eefaf2; }
+  .mednote { background:#EAF2FB; color:#0B4A8B; border-radius:8px; padding:8px 10px; margin-top:6px; font-size:14px; line-height:1.5; }
   .flag { background:var(--warn-bg); color:var(--warn); border-radius:8px; padding:6px 10px; margin-top:6px; font-size:14px; }
   .error { background:var(--err-bg); color:var(--err); border-radius:10px; padding:10px 12px; margin-top:12px; }
   .test { background:#fff3cd; color:#7a5b00; padding:8px 16px; font-size:14px; text-align:center; }
@@ -68,6 +70,56 @@ var LIFF_VERSION = '2.5.0';            // ห้ามแก้ (ใช้ตร
   .mini { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   .mini .btn { width:auto; flex:1; margin-top:0; padding:8px; font-size:14px; }
   .btn.soft { background:#fff; color:var(--text); border:1px solid var(--border); }
+  .tabs { flex-wrap:wrap; }
+  .tabs button { flex:1 1 auto; padding:10px 12px; white-space:nowrap; }
+  /* Phase 3: ปฏิทิน + Dashboard (โทนน้ำเงินตามหน้าตัวอย่างที่อนุมัติ) */
+  :root { --blue:#0055A5; --blue-bg:#E3EEF9; --hol:#A93226; --hol-bg:#FDECEA; --soft:#EEF3F8; --orange:#E8833A; --teal:#2AA7A0; }
+  .calHead { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .calHead b { font-size:18px; }
+  .navBtn { width:44px; height:44px; border-radius:22px; border:1px solid var(--border); background:#fff; color:var(--blue); font-size:20px; }
+  .calGrid { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
+  .calDow { text-align:center; font-size:12px; color:var(--muted); }
+  .calCell { height:46px; border-radius:8px; border:0; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; font:inherit; color:var(--text); padding:0; }
+  .calCell .n { font-size:14px; font-weight:500; line-height:18px; }
+  .calCell .m { font-size:10px; line-height:12px; min-height:12px; }
+  .calCell.we { color:#8A96A3; }
+  .calCell.lv { background:var(--blue-bg); color:var(--blue); }
+  .calCell.hol { background:var(--hol-bg); color:var(--hol); }
+  .calCell.today { box-shadow:inset 0 0 0 2px var(--text); }
+  .calCell.sel { outline:2px solid var(--blue); outline-offset:1px; }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; font-size:12px; color:var(--muted); margin-top:10px; }
+  .legend span i { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-2px; margin-right:6px; }
+  .rowx { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid #ECEFF1; font-size:15px; }
+  .rowx:last-child { border-bottom:0; }
+  .rowx .v { color:var(--blue); font-weight:500; text-align:right; }
+  .rowx .h { color:var(--hol); text-align:right; }
+  .sub { font-size:16px; font-weight:600; margin:4px 0 6px; }
+  .note { background:var(--soft); border-radius:12px; padding:12px; font-size:13px; color:#4A5868; }
+  .dashTop { background:var(--blue); color:#fff; border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+  .dashTop div { font-size:13px; opacity:.9; }
+  .filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .filters label { margin:0; font-size:12px; color:var(--muted); font-weight:400; flex:1 1 30%; min-width:0; }
+  .filters select { height:44px; padding:0 8px; font-size:15px; }
+  .filters .btn { flex:1 1 100%; }
+  .kpis { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; }
+  .kpi { background:var(--soft); border-radius:12px; padding:10px 12px; border:0; text-align:left; font:inherit; color:var(--text); }
+  .kpi small { display:block; font-size:12px; color:#4A5868; }
+  .kpi b { display:block; font-size:28px; line-height:1.2; }
+  .kpi.warn { background:var(--warn-bg); }
+  .kpi.warn small { color:#7A4A00; }
+  .tbl { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; font-size:14px; }
+  .tbl div { padding:8px 0; border-bottom:1px solid #ECEFF1; }
+  .tbl .th { font-size:12px; color:var(--muted); border-bottom-color:var(--border); }
+  .tbl .r { text-align:right; }
+  .bars { display:flex; align-items:flex-end; gap:6px; height:160px; border-bottom:1px solid #C3CCD6; }
+  .bar { flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; gap:2px; border:0; background:none; padding:0; min-width:0; }
+  .bar span { display:block; width:100%; }
+  .bar .t { font-size:10px; color:#4A5868; text-align:center; }
+  .bar.sel .t { color:var(--text); font-weight:700; }
+  .barLbl { display:flex; gap:6px; font-size:10px; color:var(--muted); margin-top:4px; }
+  .barLbl div { flex:1; text-align:center; min-width:0; }
+  .cardPick label { font-weight:400; display:flex; gap:8px; align-items:center; margin:8px 0; }
+  .cardPick input { width:20px; height:20px; }
 </style>
 </head>
 <body>
@@ -98,7 +150,7 @@ var LIFF_VERSION = '2.5.0';            // ห้ามแก้ (ใช้ตร
   </section>
 
   <section id="app" class="hidden">
-    <div class="tabs"><button id="tabForm" class="on">ยื่นลา</button><button id="tabList">ใบลาของฉัน</button><button id="tabRules">กติกา</button></div>
+    <div class="tabs"><button id="tabForm" class="on">ยื่นลา</button><button id="tabList">ใบลาของฉัน</button><button id="tabDg" class="hidden">ฝากอนุมัติ</button><button id="tabCal">ปฏิทิน</button><button id="tabRules">กติกา</button><button id="tabDash" class="hidden">Dashboard</button></div>
 
     <div id="paneForm">
       <div class="card hidden" id="proxyCard">
@@ -144,6 +196,7 @@ var LIFF_VERSION = '2.5.0';            // ห้ามแก้ (ใช้ตร
         <label for="file">ไฟล์แนบ (ถ้ามี)</label>
         <input id="file" type="file" accept="image/*,application/pdf">
         <div class="hint">เช่น ใบรับรองแพทย์ รูปหรือ PDF ไม่เกิน 5 MB</div>
+        <div class="mednote" id="medNote" hidden>📄 <b>ใบรับรองแพทย์</b> แนบรูปภาพหรือไฟล์ PDF ที่นี่ แล้วกรุณานำส่ง<b>ตัวจริง</b>ให้ผู้อนุมัติเมื่อกลับมาทำงาน</div>
 
         <div id="preview" class="preview hidden"></div>
         <div id="ackBox" class="ack hidden"><label class="check" style="margin:0"><input type="checkbox" id="ack"><span id="ackText"></span></label></div>
@@ -159,7 +212,72 @@ var LIFF_VERSION = '2.5.0';            // ห้ามแก้ (ใช้ตร
     </div>
 
     <div id="paneList" class="hidden"><div class="card" id="list"></div></div>
+    <div id="paneDg" class="hidden">
+      <div class="card">
+        <div style="font-weight:600;font-size:17px">ฝากอนุมัติให้ <span id="dgWho"></span></div>
+        <div class="note" id="dgStatus" style="margin-top:8px"></div>
+        <div class="row2">
+          <div><label for="dgStart">วันเริ่ม</label><input id="dgStart" type="date"><div class="be" id="dgStartBE"></div></div>
+          <div><label for="dgEnd">วันสิ้นสุด</label><input id="dgEnd" type="date"><div class="be" id="dgEndBE"></div></div>
+        </div>
+        <div class="hint">แตะช่องวันที่เพื่อเลือกจากปฏิทิน ฝากได้ไม่เกิน 60 วัน หมดอายุเอง</div>
+        <button class="btn" id="dgSave">บันทึกการฝาก</button>
+        <button class="btn ghost hidden" id="dgStop">ยกเลิกการฝาก</button>
+        <div id="dgMsg" class="hint hidden" style="margin-top:8px"></div>
+        <div id="dgErr" class="error hidden"></div>
+      </div>
+      <div class="card">
+        <div style="font-weight:600;margin-bottom:4px"><span class="dgWho2"></span> ทำอะไรได้บ้างช่วงที่ฝาก</div>
+        <ul style="margin:4px 0 0;padding-left:20px;font-size:14px;color:#4A5868">
+          <li>อนุมัติลาป่วย ลากิจ และพักร้อนไม่เกิน 3 วันทำงาน ที่ไม่เกินสิทธิ์</li>
+          <li>ไม่อนุมัติลากิจและพักร้อนได้ (ลาป่วยไม่อนุมัติไม่ได้)</li>
+          <li>ยื่นลาป่วยแทนพนักงานได้</li>
+          <li>ทุกคำตัดสินส่งสำเนาให้คุณทางอีเมล และคุณกลับคำตัดสินได้เสมอ</li>
+        </ul>
+      </div>
+    </div>
     <div id="paneRules" class="hidden"><div class="card rules" id="rulesFull"></div></div>
+
+    <!-- Phase 3: ปฏิทินทีม (ทุกคนเห็นเหมือนกัน แสดงเฉพาะใบที่อนุมัติแล้ว) -->
+    <div id="paneCal" class="hidden">
+      <div class="card">
+        <div class="calHead">
+          <button class="navBtn" id="calPrev" aria-label="เดือนก่อน">‹</button>
+          <b id="calTitle">-</b>
+          <button class="navBtn" id="calNext" aria-label="เดือนถัดไป">›</button>
+        </div>
+        <div class="calGrid"><div class="calDow">อา</div><div class="calDow">จ</div><div class="calDow">อ</div><div class="calDow">พ</div><div class="calDow">พฤ</div><div class="calDow">ศ</div><div class="calDow">ส</div></div>
+        <div class="calGrid" id="calGrid" style="margin-top:4px"></div>
+        <div class="legend">
+          <span><i style="background:var(--hol-bg);border:1px solid var(--hol)"></i>วันหยุดบริษัท</span>
+          <span><i style="background:var(--blue-bg);border:1px solid var(--blue)"></i>มีคนลา (ตัวเลข = จำนวนคน)</span>
+          <span><i style="border:2px solid var(--text)"></i>วันนี้</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="sub" id="calDayTitle"></div>
+        <div id="calDayList"></div>
+        <div class="sub" style="margin-top:10px">วันหยุดเดือนนี้</div>
+        <div id="calHolList"></div>
+      </div>
+      <div class="note">แสดงเฉพาะใบลาที่อนุมัติแล้ว · แตะวันที่เพื่อดูรายชื่อ</div>
+      <div id="calErr" class="error hidden"></div>
+    </div>
+
+    <!-- Phase 3: Dashboard ผู้บริหาร (ระบบตรวจสิทธิ์จาก LINE ทุกครั้ง) -->
+    <div id="paneDash" class="hidden">
+      <div class="dashTop"><b style="font-size:18px">Dashboard ผู้บริหาร</b><div id="dashStamp">กำลังโหลด...</div></div>
+      <div class="filters">
+        <label>ปี<select id="fYear"></select></label>
+        <label>เดือน<select id="fMonth"></select></label>
+        <label>พนักงาน<select id="fEmp"><option value="">ทุกคน</option></select></label>
+        <label>ประเภท<select id="fType"><option value="">ทุกประเภท</option></select></label>
+        <button class="btn soft" id="pickBtn" style="margin-top:0;padding:10px;font-size:15px;color:var(--blue);border-color:var(--blue)">เลือกการ์ดที่แสดง</button>
+      </div>
+      <div class="card cardPick hidden" id="pickCard"></div>
+      <div id="dashErr" class="error hidden"></div>
+      <div id="dashCards"></div>
+    </div>
   </section>
 </main>
 
@@ -211,8 +329,10 @@ function loadMe() {
     if (!res.rulesAccepted) { $('gateHint').textContent = res.rulesChanged ? 'กติกามีการเปลี่ยนแปลง กรุณาอ่านและกดยอมรับใหม่ก่อนยื่นลา' : 'กรุณาอ่านและกดยอมรับก่อนยื่นลา'; $('gateRules').innerHTML = rulesHtml(res.rules); show('gate', true); show('app', false); return; }
     show('gate', false); show('app', true);
     if (!$('cat').options.length) $('cat').innerHTML = '<option value="">-- เลือกหมวด --</option>' + res.personalCats.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
-    renderProxy(); renderBalances(); renderTypes(); renderList();
+    renderDelegate(); renderProxy(); renderBalances(); renderTypes(); renderList();
     if (!$('start').value) { $('start').value = res.today; $('end').value = res.today; onDatesChanged(); }
+    show('tabDash', !!res.isViewer);
+    if (START_TAB) { var t = START_TAB; START_TAB = null; if (t === 'calendar') tab('Cal'); else if (t === 'dashboard' && res.isViewer) tab('Dash'); }
   }).catch(function (e) { fatal(e.message); });
 }
 
@@ -225,6 +345,31 @@ function rulesHtml(secs) {
 function proxyEmp() {
   var id = $('forEmp').value;
   return ME.proxy ? (ME.proxy.staff.filter(function (e) { return e.id === id; })[0] || null) : null;
+}
+
+function renderDelegate() {
+  var d = ME.delegate;
+  show('tabDg', !!(d && d.backup));
+  if (!d || !d.backup) return;
+  $('dgWho').textContent = d.backup; document.querySelectorAll('.dgWho2').forEach(function (x) { x.textContent = d.backup; });
+  $('dgStatus').textContent = !d.registered ? d.backup + ' ยังไม่ได้ลงทะเบียน LINE จึงยังฝากไม่ได้'
+    : !d.s ? 'ยังไม่ได้ฝาก ใบลาทุกใบส่งถึงคุณคนเดียว' : (d.active ? '🟢 กำลังฝาก: ' : 'ตั้งไว้: ') + d.label;
+  $('dgStart').min = ME.today; $('dgEnd').min = ME.today;
+  $('dgStart').value = d.s && d.s >= ME.today ? d.s : ME.today;
+  $('dgEnd').value = d.e || ME.today;
+  $('dgStartBE').textContent = beLabel($('dgStart').value); $('dgEndBE').textContent = beLabel($('dgEnd').value);
+  $('dgSave').textContent = d.s ? 'บันทึกช่วงใหม่' : 'บันทึกการฝาก';
+  show('dgStop', !!d.s);
+}
+
+function delegateCall(action, data) {
+  show('dgErr', false); show('dgMsg', false);
+  $('dgSave').disabled = true; $('dgStop').disabled = true;
+  return api(action, data).then(function (res) {
+    ME.delegate = res.delegate; renderDelegate();
+    $('dgMsg').textContent = res.message; show('dgMsg', true);
+  }).catch(function (e) { $('dgErr').textContent = e.message; show('dgErr', true); })
+    .then(function () { $('dgSave').disabled = false; $('dgStop').disabled = false; });
 }
 
 function renderProxy() {
@@ -283,6 +428,7 @@ function renderList() {
       (r.evidenceRequested ? '<div class="flag">ผู้อนุมัติขอหลักฐานการรักษา กด "แนบไฟล์" ด้านล่าง</div>' : '') +
       (r.shortenRequested ? '<div class="flag">ส่งคำขอลดวันลาแล้ว รอผู้อนุมัติยืนยัน</div>' : '') +
       (r.files ? '<div class="hint">ไฟล์แนบ ' + r.files + ' ไฟล์</div>' : '') +
+      (MED_TYPES.indexOf(r.type) >= 0 && (r.files || r.evidenceRequested) ? '<div class="mednote">📄 กรณีแนบใบรับรองแพทย์ กรุณานำส่งตัวจริงให้ผู้อนุมัติเมื่อกลับมาทำงาน</div>' : '') +
       '<div class="mini">' +
         (r.canAttach ? '<button class="btn soft" data-attach="' + esc(r.id) + '">แนบไฟล์</button>' : '') +
         (r.canShorten ? '<button class="btn soft" data-short="' + esc(r.id) + '">กลับมาทำงานก่อน</button>' : '') +
@@ -304,7 +450,9 @@ function nextDay(k) { var p = k.split('-').map(Number), d = new Date(p[0], p[1] 
 function currentType() { var c = $('type').value; return typeList().filter(function (t) { return t.code === c; })[0]; }
 function currentPart() { var x = document.querySelector('input[name=part]:checked'); return x ? x.value : 'เต็มวัน'; }
 
+var MED_TYPES = ['SICK', 'MATERNITY', 'STERILIZATION', 'NEWBORN_CARE']; // ประเภทที่มักมีใบรับรองแพทย์
 function onDatesChanged() {
+  $('medNote').hidden = MED_TYPES.indexOf($('type').value) < 0;
   if ($('start').value && (!$('end').value || $('end').value < $('start').value)) $('end').value = $('start').value;
   $('startBE').textContent = beLabel($('start').value);
   $('endBE').textContent = beLabel($('end').value);
@@ -371,6 +519,15 @@ function readFile(f) {
   });
 }
 
+['dgStart', 'dgEnd'].forEach(function (id) { $(id).addEventListener('change', function () {
+  if (id === 'dgStart' && $('dgEnd').value < this.value) $('dgEnd').value = this.value;
+  $('dgStartBE').textContent = beLabel($('dgStart').value); $('dgEndBE').textContent = beLabel($('dgEnd').value);
+}); });
+$('dgSave').addEventListener('click', function () { delegateCall('delegate', { start: $('dgStart').value, end: $('dgEnd').value }); });
+$('dgStop').addEventListener('click', function () {
+  if (!confirm('ยกเลิกการฝากอนุมัติให้ ' + ME.delegate.backup + '?')) return;
+  delegateCall('delegateStop');
+});
 $('type').addEventListener('change', onDatesChanged);
 $('forEmp').addEventListener('change', function () { renderBalances(); renderTypes(); onDatesChanged(); });
 $('ack').addEventListener('change', function () { $('submitBtn').disabled = !lastPreviewOk || (NEED_ACK && !this.checked); });
@@ -410,11 +567,164 @@ $('regBtn').addEventListener('click', function () {
 });
 
 function tab(name) {
-  ['Form', 'List', 'Rules'].forEach(function (n) { $('tab' + n).classList.toggle('on', n === name); show('pane' + n, n === name); });
+  ['Form', 'List', 'Dg', 'Cal', 'Rules', 'Dash'].forEach(function (n) { $('tab' + n).classList.toggle('on', n === name); show('pane' + n, n === name); });
+  if (name === 'Cal') loadCal(CAL.month || ME.today.slice(0, 7));
+  if (name === 'Dash') loadDash();
 }
 $('tabForm').addEventListener('click', function () { tab('Form'); });
 $('tabList').addEventListener('click', function () { tab('List'); });
+$('tabDg').addEventListener('click', function () { tab('Dg'); });
+$('tabCal').addEventListener('click', function () { tab('Cal'); });
 $('tabRules').addEventListener('click', function () { tab('Rules'); });
+$('tabDash').addEventListener('click', function () { tab('Dash'); });
+
+/* ============================== Phase 3: ปฏิทินทีม ============================== */
+var START_TAB = (new URLSearchParams(location.search)).get('tab');
+var CAL = { month: null, data: null, sel: null };
+var TH_MF = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+function addMonth(m, n) { var y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1 + n; y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12; return y + '-' + ('0' + (mo + 1)).slice(-2); }
+function keyOf(y, m, d) { return y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2); }
+
+function loadCal(month) {
+  show('calErr', false);
+  $('calTitle').textContent = 'กำลังโหลด...';
+  api('calendar', { month: month }).then(function (res) {
+    CAL.month = res.month; CAL.data = res;
+    CAL.sel = res.today.slice(0, 7) === res.month ? res.today : res.month + '-01';
+    renderCal();
+  }).catch(function (e) { $('calTitle').textContent = '-'; $('calErr').textContent = e.message; show('calErr', true); });
+}
+
+function renderCal() {
+  var r = CAL.data, y = +r.month.slice(0, 4), m = +r.month.slice(5, 7), first = new Date(y, m - 1, 1).getDay(), last = new Date(y, m, 0).getDate();
+  var hol = {}; r.holidays.forEach(function (h) { hol[h.key] = h.name; });
+  $('calTitle').textContent = TH_MF[m - 1] + ' ' + (y + 543);
+  var html = '';
+  for (var i = 0; i < first; i++) html += '<div></div>';
+  for (var d = 1; d <= last; d++) {
+    var k = keyOf(y, m, d), dow = (first + d - 1) % 7, list = r.days[k] || [], cls = 'calCell', mark = '';
+    if (hol[k]) { cls += ' hol'; mark = 'หยุด'; }
+    else if (list.length) { cls += ' lv'; mark = list.length + ' คน'; }
+    else if (dow === 0 || dow === 6) cls += ' we';
+    if (k === r.today) cls += ' today';
+    if (k === CAL.sel) cls += ' sel';
+    html += '<button class="' + cls + '" data-day="' + k + '" aria-label="' + esc(beLabel(k)) + '"><span class="n">' + d + '</span><span class="m">' + mark + '</span></button>';
+  }
+  $('calGrid').innerHTML = html;
+  var sel = CAL.sel, people = r.days[sel] || [];
+  $('calDayTitle').textContent = beLabel(sel) + (hol[sel] ? ' · ' + hol[sel] : '') + ' ใครลา';
+  $('calDayList').innerHTML = people.length ? people.map(function (p) { return '<div class="rowx"><span>' + esc(p.nick) + '</span><span class="v">' + esc(p.part) + '</span></div>'; }).join('')
+    : '<div class="hint">ไม่มีคนลา</div>';
+  $('calHolList').innerHTML = r.holidays.length ? r.holidays.map(function (h) { return '<div class="rowx"><span>' + esc(beLabel(h.key)) + '</span><span class="h">' + esc(h.name) + '</span></div>'; }).join('')
+    : '<div class="hint">ไม่มีวันหยุดบริษัท</div>';
+}
+$('calGrid').addEventListener('click', function (e) {
+  var b = e.target.closest('[data-day]'); if (!b) return;
+  CAL.sel = b.getAttribute('data-day'); renderCal();
+});
+$('calPrev').addEventListener('click', function () { loadCal(addMonth(CAL.month, -1)); });
+$('calNext').addEventListener('click', function () { loadCal(addMonth(CAL.month, 1)); });
+
+/* ============================== Phase 3: Dashboard ผู้บริหาร ============================== */
+var DASH = { data: null, barSel: null, ready: false };
+var CARD_NAMES = { c1: 'วันนี้และสัปดาห์นี้', c2: 'ยอดวันลา ใช้ไป / สิทธิ์', c3: 'วันลารายเดือน', c4: 'สัญญาณเตือน', c5: 'พักร้อนที่อาจใช้ไม่หมดสิ้นปี', c6: 'ลาไม่ได้รับค่าจ้าง' };
+var SERIES = [['VACATION', 'พักร้อน', '#0055A5'], ['SICK', 'ป่วย', '#E8833A'], ['PERSONAL', 'กิจ', '#2AA7A0'], ['OTHER', 'อื่นๆ', '#8A96A3']];
+function hiddenCards() { try { return JSON.parse(localStorage.getItem('dashHidden') || '[]'); } catch (e) { return []; } }
+function setHiddenCards(a) { try { localStorage.setItem('dashHidden', JSON.stringify(a)); } catch (e) {} }
+
+function initFilters() {
+  if (DASH.ready) return;
+  DASH.ready = true;
+  var y = +ME.today.slice(0, 4), m = +ME.today.slice(5, 7);
+  $('fYear').innerHTML = [y - 1, y, y + 1].map(function (v) { return '<option value="' + v + '"' + (v === y ? ' selected' : '') + '>' + (v + 543) + '</option>'; }).join('');
+  $('fMonth').innerHTML = TH_M.map(function (n, i) { return '<option value="' + (i + 1) + '"' + (i + 1 === m ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+  ['fYear', 'fMonth', 'fEmp', 'fType'].forEach(function (id) { $(id).addEventListener('change', loadDash); });
+}
+
+function loadDash() {
+  initFilters();
+  show('dashErr', false);
+  $('dashStamp').textContent = 'กำลังดึงข้อมูล...';
+  var month = $('fYear').value + '-' + ('0' + $('fMonth').value).slice(-2);
+  api('dashboard', { month: month, emp: $('fEmp').value, type: $('fType').value }).then(function (res) {
+    DASH.data = res;
+    if ($('fEmp').options.length === 1) $('fEmp').innerHTML += res.staff.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.nick) + '</option>'; }).join('');
+    if ($('fType').options.length === 1) $('fType').innerHTML += res.types.map(function (t) { return '<option value="' + esc(t.code) + '">' + esc(t.name) + '</option>'; }).join('');
+    $('dashStamp').textContent = (res.testMode ? 'โหมดทดสอบ · ' : '') + 'ดึงข้อมูลสดเมื่อ ' + res.generatedAt + ' น. · ดึงใหม่ทุกครั้งที่เปิด';
+    renderDash();
+  }).catch(function (e) { $('dashStamp').textContent = '-'; $('dashErr').textContent = e.message; show('dashErr', true); });
+}
+
+function card(id, title, body) {
+  if (hiddenCards().indexOf(id) >= 0) return '';
+  return '<div class="card"><div class="sub" style="margin-top:0">' + title + '</div>' + body + '</div>';
+}
+function cell(b) { return b ? b.used + '/' + b.total : '-'; }
+
+function renderDash() {
+  var d = DASH.data, f = d.filter, mName = TH_M[+f.month.slice(5, 7) - 1], html = '', n = 0;
+  var num = function () { return (++n) + ' · '; };
+  // 1
+  var c1 = d.card1;
+  html += card('c1', num() + CARD_NAMES.c1, '<div class="kpis">' +
+    '<div class="kpi"><small>ลาวันนี้</small><b>' + c1.todayCount + '</b><small>คน</small></div>' +
+    '<div class="kpi"><small>สัปดาห์นี้</small><b>' + c1.weekCount + '</b><small>คน</small></div>' +
+    '<button class="kpi warn" id="pendBtn"><small>รออนุมัติ</small><b>' + c1.pending.length + '</b><small>ใบ · แตะดู</small></button></div>' +
+    '<div class="hint" style="margin-top:10px;font-size:14px">' + (c1.today.length ? 'วันนี้: ' + c1.today.map(function (x) { return esc(x.nick) + ' (' + esc(x.type) + ' ' + esc(x.part) + ')'; }).join(', ') : 'วันนี้ไม่มีคนลา') + '</div>' +
+    '<div id="pendList" class="hidden" style="margin-top:6px">' + (c1.pending.length ? c1.pending.map(function (p) {
+      return '<div class="rowx"><span>' + esc(p.nick) + ' · ' + esc(p.type) + '<div class="hint">' + esc(p.id) + ' · ' + esc(p.dates) + '</div></span><span class="v">' + p.days + ' วัน</span></div>'; }).join('') +
+      '<div class="hint">กดอนุมัติได้ในแชต LINE เมนู "ใบที่รออนุมัติ"</div>' : '<div class="hint">ไม่มีใบรออนุมัติ</div>') + '</div>');
+  // 2
+  html += card('c2', num() + CARD_NAMES.c2 + ' (วัน) ปี ' + f.yearBE, '<div class="tbl"><div class="th">พนักงาน</div><div class="th r">พักร้อน</div><div class="th r">ป่วย</div><div class="th r">กิจ</div>' +
+    d.card2.map(function (b) { return '<div>' + esc(b.nick) + '</div><div class="r">' + cell(b.VACATION) + '</div><div class="r">' + cell(b.SICK) + '</div><div class="r">' + cell(b.PERSONAL) + '</div>'; }).join('') + '</div>');
+  // 3
+  var max = 1; d.card3.forEach(function (m) { var t = m.VACATION + m.SICK + m.PERSONAL + m.OTHER; if (t > max) max = t; });
+  var hasOther = d.card3.some(function (m) { return m.OTHER > 0; }), ser = SERIES.filter(function (x) { return x[0] !== 'OTHER' || hasOther; });
+  var bars = d.card3.map(function (m, i) {
+    var tot = m.VACATION + m.SICK + m.PERSONAL + m.OTHER, segs = ser.slice().reverse().map(function (x, j) {
+      if (!m[x[0]]) return '';
+      return '<span style="height:' + Math.round(m[x[0]] / max * 130) + 'px;background:' + x[2] + '"></span>';
+    }).join('');
+    return '<button class="bar' + (DASH.barSel === i ? ' sel' : '') + '" data-bar="' + i + '" aria-label="' + TH_M[i] + ' ' + tot + ' วัน"><span class="t">' + (tot || '') + '</span>' + segs + '</button>';
+  }).join('');
+  var sel = DASH.barSel === null ? null : d.card3[DASH.barSel];
+  html += card('c3', num() + CARD_NAMES.c3 + ' ปี ' + f.yearBE + ' (วัน)', '<div class="legend" style="margin:0 0 10px">' + ser.map(function (x) { return '<span><i style="background:' + x[2] + '"></i>' + x[1] + '</span>'; }).join('') + '</div>' +
+    '<div class="bars" id="bars">' + bars + '</div><div class="barLbl">' + TH_M.map(function (x) { return '<div>' + x + '</div>'; }).join('') + '</div>' +
+    '<div class="hint" style="margin-top:8px">' + (sel ? TH_M[DASH.barSel] + ': ' + ser.map(function (x) { return x[1] + ' ' + sel[x[0]]; }).join(' · ') : 'แตะแท่งเพื่อดูตัวเลขแยกประเภท') + '</div>');
+  // 4
+  var c4 = d.card4, frow = function (label, list) {
+    return '<div class="rowx"><span>' + label + (list.length ? '<div class="hint">' + list.map(function (x) { return esc(x.nick) + ' ' + esc(x.dates); }).join(', ') + '</div>' : '') + '</span><b>' + list.length + '</b></div>'; };
+  html += card('c4', num() + CARD_NAMES.c4 + ' (' + mName + ')', frow('แจ้งลาป่วย/ลากิจช้า (หลังเวลาเข้างาน)', c4.late) + frow('ยื่นย้อนหลัง', c4.backdated) + frow('ลาเกินสิทธิ์', c4.over) + frow('ลาติดวันหยุด (ต่อวันหยุดยาว)', c4.bridge));
+  // 5
+  var c5 = d.card5;
+  html += card('c5', num() + CARD_NAMES.c5, c5.list.length || c5.workLeft ? '<div class="hint">เหลือวันทำงานถึง 31 ธ.ค.: ' + c5.workLeft + ' วัน</div>' +
+    (c5.list.length ? c5.list.map(function (x) { return '<div class="rowx"><span>' + esc(x.nick) + '</span><span>เหลือ <b>' + x.left + '</b> วัน</span></div>'; }).join('') : '<div class="hint">ทุกคนใช้พักร้อนครบแล้ว</div>')
+    : '<div class="hint">ดูได้เฉพาะปีปัจจุบัน</div>');
+  // 6
+  var c6 = d.card6;
+  html += card('c6', num() + CARD_NAMES.c6 + ' งวด ' + esc(c6.label), (c6.list.length ? c6.list.map(function (x) { return '<div class="rowx"><span>' + esc(x.nick) + '</span><span><b>' + x.days + '</b> วัน</span></div>'; }).join('')
+    : '<div class="hint">ไม่มี</div>') + '<div class="hint">ตรงกับไฟล์ Excel เงินเดือนที่ส่งอัตโนมัติวันที่ 23</div>');
+  $('dashCards').innerHTML = html || '<div class="hint">ซ่อนการ์ดไว้ทั้งหมด กด "เลือกการ์ดที่แสดง"</div>';
+}
+
+$('dashCards').addEventListener('click', function (e) {
+  if (e.target.closest('#pendBtn')) { show('pendList', $('pendList').classList.contains('hidden')); return; }
+  var b = e.target.closest('[data-bar]');
+  if (b) { var i = +b.getAttribute('data-bar'); DASH.barSel = DASH.barSel === i ? null : i; renderDash(); }
+});
+$('pickBtn').addEventListener('click', function () {
+  var on = $('pickCard').classList.contains('hidden'), hid = hiddenCards();
+  $('pickCard').innerHTML = '<div class="sub" style="margin-top:0">การ์ดที่แสดง (จำไว้ในมือถือเครื่องนี้)</div>' + Object.keys(CARD_NAMES).map(function (k) {
+    return '<label><input type="checkbox" data-card="' + k + '"' + (hid.indexOf(k) < 0 ? ' checked' : '') + '>' + CARD_NAMES[k] + '</label>'; }).join('');
+  show('pickCard', on);
+});
+$('pickCard').addEventListener('change', function (e) {
+  var k = e.target.getAttribute('data-card'); if (!k) return;
+  var hid = hiddenCards().filter(function (x) { return x !== k; });
+  if (!e.target.checked) hid.push(k);
+  setHiddenCards(hid);
+  if (DASH.data) renderDash();
+});
 
 $('gateBtn').addEventListener('click', function () {
   if (!$('gateAccept').checked) { alert('กรุณาติ๊กยอมรับกติกาก่อน'); return; }
@@ -427,7 +737,7 @@ $('list').addEventListener('change', function (e) {
   if (!id || !e.target.files[0]) return;
   readFile(e.target.files[0]).then(function (f) {
     if (!confirm('แนบไฟล์นี้กับใบลา ' + id + ' ?')) return;
-    return api('attach', { id: id, file: f }).then(function () { alert('แนบไฟล์แล้ว ผู้อนุมัติได้รับแจ้งแล้ว'); return loadMe(); });
+    return api('attach', { id: id, file: f }).then(function () { alert('ผู้อนุมัติได้รับไฟล์แนบแล้ว\nกรณีเป็นใบรับรองแพทย์ กรุณานำส่งตัวจริงให้ผู้อนุมัติเมื่อกลับมาทำงาน'); return loadMe(); });
   }).catch(function (err) { alert(err.message); });
 });
 
