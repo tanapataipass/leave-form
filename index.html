@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ยื่นใบลา</title>
 <!--
-  ฟอร์มยื่นลา (LIFF) ระบบลางาน Phase 3 (เพิ่มแท็บ ปฏิทิน และ Dashboard สำหรับผู้บริหาร)
-  เปิดแท็บตรงได้ด้วย ?tab=calendar หรือ ?tab=dashboard ต่อท้ายลิงก์ LIFF
+  ฟอร์มยื่นลา (LIFF) ระบบลางาน Phase 3 (เพิ่มแท็บ ปฏิทิน และ Dashboard สำหรับผู้บริหาร) + 3.3 เบิกค่ารักษา
+  เปิดแท็บตรงได้ด้วย ?tab=calendar หรือ ?tab=dashboard ต่อท้ายลิงก์ LIFF (3.3: ?tab=medical, ?tab=medreview&id=เลขที่บิล)
   แก้ 2 บรรทัดใน CONFIG ด้านล่างเท่านั้น ค่าทั้งสองไม่ใช่ความลับ (ทุกคำขอต้องผ่านการยืนยันตัวตน LINE ที่ฝั่ง Apps Script)
   ห้ามใส่ Channel access token หรือรหัสลับใดๆ ในไฟล์นี้
 -->
@@ -15,7 +15,7 @@ var CONFIG = {
   LIFF_ID: '2012182171-opVufJsC',              // เช่น 2001234567-AbCdEfGh
   API_URL: 'https://script.google.com/macros/s/AKfycbykdhtSVQ9zuLNOl3aw-snP84cvil4H1kuK44L9dyILk-HcJ7Sv1ZIeWpD8yY6hriOhPg/exec'           // URL ของ Web App ที่ลงท้ายด้วย /exec
 };
-var LIFF_VERSION = '3.2.0';            // ห้ามแก้ (ใช้ตรวจว่าไฟล์ตรงรุ่นกับ Apps Script)
+var LIFF_VERSION = '3.3.0';            // ห้ามแก้ (ใช้ตรวจว่าไฟล์ตรงรุ่นกับ Apps Script)
 </script>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
@@ -157,6 +157,28 @@ var LIFF_VERSION = '3.2.0';            // ห้ามแก้ (ใช้ตร
   .barLbl div { flex:1; text-align:center; min-width:0; }
   .cardPick label { font-weight:400; display:flex; gap:8px; align-items:center; margin:8px 0; }
   .cardPick input { width:20px; height:20px; }
+  /* 3.3: เบิกค่ารักษา */
+  .toggle { display:flex; justify-content:space-between; align-items:center; background:#f0f5fb; border-radius:10px; padding:10px 12px; margin-top:14px; font-weight:600; cursor:pointer; }
+  .sw { width:46px; height:26px; border-radius:13px; background:#c3ccd6; position:relative; flex:none; border:0; padding:0; }
+  .sw:after { content:""; position:absolute; left:3px; top:3px; width:20px; height:20px; border-radius:10px; background:#fff; transition:left .15s; }
+  .sw.on { background:var(--line); } .sw.on:after { left:23px; }
+  .est { background:#eefaf2; border-radius:10px; padding:10px 12px; margin-top:12px; font-size:14px; } .est b { font-size:18px; }
+  .est.bad { background:var(--warn-bg); color:var(--warn); }
+  .cond { font-size:13px; color:var(--muted); margin-top:10px; line-height:1.6; }
+  .s-รอตรวจ, .s-ขอเอกสารเพิ่ม { background:#fff3cd; color:#7a5b00; } .s-รอใบเสร็จตัวจริง, .s-รอโอน { background:#EAF2FB; color:#0B4A8B; }
+  .s-โอนแล้ว { background:#d9f5e3; color:#11733b; }
+  .kv { display:grid; grid-template-columns:1fr auto; gap:4px 10px; font-size:15px; margin-top:10px; } .kv span { color:var(--muted); } .kv b { text-align:right; }
+  .okline { background:#d9f5e3; color:#11733b; border-radius:8px; padding:6px 10px; margin-top:8px; font-size:14px; }
+  .rcpt img { width:100%; border-radius:10px; border:1px solid var(--border); display:block; }
+  .btn2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; } .btn2 .btn { margin:0; padding:12px; font-size:15px; }
+  .btn.blue { background:#0B4A8B; } .btn.white { background:#fff; color:var(--text); border:1px solid var(--border); }
+  .btn.redline { background:#fff; color:var(--err); border:1px solid var(--err); }
+  table.mt { width:100%; border-collapse:collapse; font-size:14px; } table.mt th { font-size:12px; color:var(--muted); font-weight:600; text-align:right; padding:6px 4px; border-bottom:1px solid var(--border); }
+  table.mt th:first-child, table.mt td:first-child { text-align:left; } table.mt td { padding:8px 4px; border-bottom:1px solid var(--border); text-align:right; }
+  .mbar { height:6px; background:#eef1f4; border-radius:3px; margin-top:3px; } .mbar i { display:block; height:6px; border-radius:3px; background:#F2A541; }
+  .todo { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px; } .todo:last-child { border:0; }
+  .sbtn { padding:7px 10px; border-radius:8px; border:0; background:var(--line); color:#fff; font-size:13px; font-weight:700; flex:none; }
+  .sbtn.o { background:#fff; color:#0B4A8B; border:1px solid #0B4A8B; }
 </style>
 </head>
 <body>
@@ -189,7 +211,7 @@ var LIFF_VERSION = '3.2.0';            // ห้ามแก้ (ใช้ตร
   </section>
 
   <section id="app" class="hidden">
-    <div class="tabs"><button id="tabForm" class="on">ยื่นลา</button><button id="tabList">ใบลาของฉัน</button><button id="tabDg" class="hidden">ฝากอนุมัติ</button><button id="tabCal">ปฏิทิน</button><button id="tabHol">วันหยุด</button><button id="tabDash" class="hidden">Dashboard</button></div>
+    <div class="tabs"><button id="tabForm" class="on">ยื่นลา</button><button id="tabList">ใบลาของฉัน</button><button id="tabMed" class="hidden">ค่ารักษา</button><button id="tabDg" class="hidden">ฝากอนุมัติ</button><button id="tabCal">ปฏิทิน</button><button id="tabHol">วันหยุด</button><button id="tabDash" class="hidden">Dashboard</button></div>
 
     <div id="paneForm">
       <div class="card hidden" id="proxyCard">
@@ -239,6 +261,12 @@ var LIFF_VERSION = '3.2.0';            // ห้ามแก้ (ใช้ตร
         <div class="hint">เช่น ใบรับรองแพทย์ รูปหรือ PDF ไม่เกิน 5 MB</div>
         <div class="mednote" id="medNote" hidden>📄 <b>ใบรับรองแพทย์</b> แนบรูปภาพหรือไฟล์ PDF ที่นี่ แล้วกรุณานำส่ง<b>ตัวจริง</b>ให้ผู้อนุมัติเมื่อกลับมาทำงาน</div>
 
+        <!-- 3.3: ลาป่วยพร้อมเบิกค่ารักษา (แสดงเฉพาะผู้มีสิทธิ์ค่ารักษา) -->
+        <div id="medBox" class="hidden">
+          <div class="toggle" id="medToggle"><span>กรณีเบิกค่ารักษา</span><button type="button" class="sw" id="medSw" aria-label="กรณีเบิกค่ารักษา"></button></div>
+          <div id="mfFields" class="hidden"></div>
+        </div>
+
         <div id="preview" class="preview hidden"></div>
         <div id="ackBox" class="ack hidden"><label class="check" style="margin:0"><input type="checkbox" id="ack"><span id="ackText"></span></label></div>
         <div id="formErr" class="error hidden"></div>
@@ -253,6 +281,20 @@ var LIFF_VERSION = '3.2.0';            // ห้ามแก้ (ใช้ตร
     </div>
 
     <div id="paneList" class="hidden"><div class="card" id="list"></div></div>
+    <!-- 3.3: แท็บค่ารักษาของพนักงาน -->
+    <div id="paneMed" class="hidden">
+      <div class="card" id="medBal"></div>
+      <div class="card hidden" id="medFormCard">
+        <div style="font-weight:600;font-size:17px" id="medFormTitle">เบิกค่ารักษา (กรณีไม่ได้ลา)</div>
+        <div id="mtFields"></div>
+        <div id="medFormErr" class="error hidden"></div>
+        <button class="btn" id="medSend">ส่งเรื่องเบิกค่ารักษา</button>
+        <button class="btn soft" id="medBack" style="margin-top:8px">ยกเลิก</button>
+      </div>
+      <div class="card" id="medBills"></div>
+    </div>
+    <!-- 3.3: หน้าตรวจบิล (ผู้อนุมัติหลัก) เปิดจากการ์ดใน LINE หรือ Dashboard -->
+    <div id="paneRv" class="hidden"><div class="card" id="rvBody"><div class="hint">กำลังโหลด...</div></div></div>
     <div id="paneDg" class="hidden">
       <div class="card">
         <div style="font-weight:600;font-size:17px">ฝากอนุมัติให้ <span id="dgWho"></span></div>
@@ -326,7 +368,7 @@ var LIFF_VERSION = '3.2.0';            // ห้ามแก้ (ใช้ตร
         <label>พนักงาน<select id="fEmp"><option value="">ทุกคน</option></select></label>
         <label>ประเภท<select id="fType"><option value="">ทุกประเภท</option></select></label>
         <button class="btn soft" id="pickBtn" style="margin-top:0;padding:10px;font-size:15px;color:var(--blue);border-color:var(--blue)">เลือกการ์ดที่แสดง</button>
-        <button class="btn soft" id="xlsBtn" style="margin-top:0;padding:10px;font-size:15px;color:var(--blue);border-color:var(--blue)">ส่ง Excel เข้าอีเมล</button>
+        <button class="btn soft" id="xlsBtn" style="margin-top:0;padding:10px;font-size:15px;color:var(--blue);border-color:var(--blue)">ส่งรายงาน Excel เข้าอีเมล</button>
       </div>
       <div class="card cardPick hidden" id="pickCard"></div>
       <div id="dashErr" class="error hidden"></div>
@@ -404,13 +446,15 @@ function loadMe() {
     if (!res.rulesAccepted) { $('gateHint').textContent = res.rulesChanged ? 'กติกามีการเปลี่ยนแปลง กรุณาอ่านและกดยอมรับใหม่ก่อนยื่นลา' : 'กรุณาอ่านและกดยอมรับก่อนยื่นลา'; $('gateRules').innerHTML = rulesHtml(res.rules); show('gate', true); show('app', false); return; }
     show('gate', false); show('app', true);
     if (!$('cat').options.length) $('cat').innerHTML = '<option value="">-- เลือกหมวด --</option>' + res.personalCats.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
-    renderDelegate(); renderProxy(); renderBalances(); renderTypes(); renderList();
+    renderDelegate(); renderProxy(); renderBalances(); renderTypes(); renderList(); renderMed();
     if (!$('start').value) { $('start').value = res.today; $('end').value = res.today; onDatesChanged(); }
     show('tabDash', !!res.isViewer);
     if (!OPENED) { OPENED = true; PERF_Q.push(['open', Math.round(now())]); prefetch(); }
     else { CAL.cache = {}; CAL.years = {}; CAL.hol = {}; }
     if (START_TAB) { var t = START_TAB; START_TAB = null; if (t === 'calendar') tab('Cal'); else if (t === 'holidays') tab('Hol'); else if (t === 'list') tab('List');
-      else if (t === 'delegate' && ME.delegate && ME.delegate.backup) tab('Dg'); else if (t === 'dashboard' && res.isViewer) tab('Dash'); }
+      else if (t === 'delegate' && ME.delegate && ME.delegate.backup) tab('Dg'); else if (t === 'dashboard' && res.isViewer) tab('Dash');
+      else if (t === 'medical') { if (res.medApprover && res.isViewer) { DASH.seg = 'med'; tab('Dash'); } else if (res.med) tab('Med'); }
+      else if (t === 'medreview' && res.medApprover && START_Q.get('id')) openReview(START_Q.get('id'), 'Form'); }
     if (START_QUICK === 'sick') { START_QUICK = null; quickSick(); }
   }).catch(function (e) { fatal(e.message); });
 }
@@ -566,6 +610,7 @@ function currentPart() { var x = document.querySelector('input[name=part]:checke
 var MED_TYPES = ['SICK', 'MATERNITY', 'STERILIZATION', 'NEWBORN_CARE']; // ประเภทที่มักมีใบรับรองแพทย์
 function onDatesChanged() {
   $('medNote').hidden = MED_TYPES.indexOf($('type').value) < 0;
+  show('medBox', medFormAllowed()); submitLabel();
   if ($('start').value && (!$('end').value || $('end').value < $('start').value)) $('end').value = $('start').value;
   $('startBE').textContent = beLabel($('start').value);
   $('endBE').textContent = beLabel($('end').value);
@@ -578,7 +623,7 @@ function onDatesChanged() {
 }
 
 var PREVIEW_SEQ = 0;
-function submitLabel() { var p = proxyEmp(); $('submitBtn').textContent = p ? 'ยื่นแทน ' + p.nick + ' และอนุมัติ' : 'ยื่นใบลา'; }
+function submitLabel() { var p = proxyEmp(); $('submitBtn').textContent = p ? 'ยื่นแทน ' + p.nick + ' และอนุมัติ' : medOn() ? 'ยื่นใบลาและเบิกค่ารักษา' : 'ยื่นใบลา'; }
 function schedulePreview() {
   lastPreviewOk = false; $('submitBtn').disabled = true;
   clearTimeout(previewTimer);
@@ -608,6 +653,7 @@ function formData(withFile) {
   var d = { type: $('type').value, start: $('start').value, end: $('end').value, part: currentPart(),
             reason: $('reason').value, hasFile: !!FILE, forEmp: $('forEmp').value, category: $('cat').value, ackUnpaid: $('ack').checked };
   if (withFile && FILE) d.file = FILE;
+  if (withFile && medOn()) d.med = medData('mf');
   return d;
 }
 
@@ -662,18 +708,23 @@ $('file').addEventListener('change', function () {
 $('submitBtn').addEventListener('click', function () {
   if (!lastPreviewOk) return;
   if ($('type').value === 'PERSONAL' && !$('cat').value && !proxyEmp()) { $('formErr').textContent = 'ลากิจต้องเลือกหมวด'; show('formErr', true); return; }
-  var btn = this, done = busy(btn, FILE ? 'กำลังส่งใบลาและไฟล์...' : 'กำลังส่งใบลา...');
+  var medErr = medOn() ? medMissing('mf') : '';
+  if (medErr) { $('formErr').textContent = medErr; show('formErr', true); return; }
+  var btn = this, done = busy(btn, medOn() ? 'กำลังส่งใบลาและบิลค่ารักษา...' : FILE ? 'กำลังส่งใบลาและไฟล์...' : 'กำลังส่งใบลา...');
   api('submit', formData(true)).then(function (res) {
     $('doneText').innerHTML = '<div>เลขที่ ' + esc(res.id) + ' จำนวน ' + res.days + ' วัน</div>' +
       (res.proxy ? '<div class="hint">ยื่นแทน ' + esc(res.forNick) + ' และอนุมัติแล้ว ระบบแจ้ง ' + esc(res.forNick) + ' ทาง LINE แล้ว</div>'
                  : '<div class="hint">สถานะ: รออนุมัติ ผลจะแจ้งทาง LINE</div>') +
-      res.flags.map(function (f) { return '<div class="flag">⚠️ ' + esc(f) + '</div>'; }).join('');
+      res.flags.map(function (f) { return '<div class="flag">⚠️ ' + esc(f) + '</div>'; }).join('') +
+      (res.med ? '<div class="mednote" style="margin-top:10px">เบิกค่ารักษาเลขที่ ' + esc(res.med.id) + ' ยอดตามใบเสร็จ ' + money(res.med.amount) + ' บาท สถานะ: รอตรวจ<br>บริษัทจะโอนเงินเมื่อได้รับใบเสร็จตัวจริงแล้ว</div>' : '') +
+      (res.medError ? '<div class="flag">⚠️ ' + esc(res.medError) + '</div>' : '');
     var dg = ME.delegate, ds = $('start').value, de = $('end').value;
     if (!res.proxy && dg && dg.backup && dg.registered && res.days >= 2)
       $('doneText').innerHTML += '<div class="hint" style="margin-top:10px">ช่วงที่คุณลา ใบลาของพนักงานจะรอคุณคนเดียว</div>' +
         '<button class="btn soft" id="dgOffer" data-s="' + esc(ds) + '" data-e="' + esc(de) + '">ฝากอนุมัติช่วงนี้ให้ ' + esc(dg.backup) + '</button>';
     show('formCard', false); show('doneCard', true);
     $('reason').value = ''; $('file').value = ''; FILE = null; $('cat').value = ''; $('ack').checked = false; show('ackBox', false);
+    if (res.med || medOn()) medReset('mf');
     return loadMe();
   }).then(function () { done(true); submitLabel(); }, function (e) { done(); $('formErr').textContent = e.message; show('formErr', true); })
     .then(function () { renderBalances(); });
@@ -697,13 +748,15 @@ $('regBtn').addEventListener('click', function () {
 });
 
 function tab(name) {
-  ['Form', 'List', 'Dg', 'Cal', 'Hol', 'Dash'].forEach(function (n) { $('tab' + n).classList.toggle('on', n === name); show('pane' + n, n === name); });
+  ['Form', 'List', 'Med', 'Dg', 'Cal', 'Hol', 'Dash', 'Rv'].forEach(function (n) { if ($('tab' + n)) $('tab' + n).classList.toggle('on', n === name); show('pane' + n, n === name); });
+  if (name !== 'Rv') RV.back = name;
   if (name === 'Cal') loadCal(CAL.month || ME.today.slice(0, 7));
   if (name === 'Hol') { if (CAL.annY === null) CAL.annY = +ME.today.slice(0, 4); renderAnnual(); }
   if (name === 'Dash') { loadDash(); loadQuota(); }
 }
 $('tabForm').addEventListener('click', function () { tab('Form'); });
 $('tabList').addEventListener('click', function () { tab('List'); });
+$('tabMed').addEventListener('click', function () { tab('Med'); });
 $('tabDg').addEventListener('click', function () { tab('Dg'); });
 $('tabCal').addEventListener('click', function () { tab('Cal'); });
 $('tabHol').addEventListener('click', function () { tab('Hol'); });
@@ -833,7 +886,7 @@ $('annList').addEventListener('click', function (e) {
 });
 
 /* ============================== Phase 3: Dashboard ผู้บริหาร ============================== */
-var DASH = { data: null, barSel: null, ready: false, cache: {}, flight: {} };
+var DASH = { data: null, barSel: null, ready: false, cache: {}, flight: {}, seg: 'leave' };
 var CARD_NAMES = { c1: 'วันนี้และสัปดาห์นี้', c2: 'ยอดวันลา ใช้ไป / สิทธิ์', c3: 'วันลารายเดือน', c4: 'สัญญาณเตือน', c5: 'พักร้อนที่อาจใช้ไม่หมดสิ้นปี', c6: 'ลาไม่ได้รับค่าจ้าง' };
 var SERIES = [['VACATION', 'พักร้อน', '#0055A5'], ['SICK', 'ป่วย', '#E8833A'], ['PERSONAL', 'กิจ', '#2AA7A0'], ['OTHER', 'อื่นๆ', '#8A96A3']];
 function hiddenCards() { try { return JSON.parse(localStorage.getItem('dashHidden') || '[]'); } catch (e) { return []; } }
@@ -921,6 +974,10 @@ function cell(b) { return b ? b.used + '/' + b.total : '-'; }
 
 function renderDash() {
   var d = DASH.data, f = d.filter, mName = f.whole ? 'ทั้งปี ' + f.yearBE : TH_M[+f.month.slice(5, 7) - 1], html = '', n = 0;
+  // 3.3: ผู้อนุมัติหลักสลับดู "ภาพรวมการลา" / "ค่ารักษา"
+  var seg = d.med ? '<div class="seg"><button data-seg="leave"' + (DASH.seg !== 'med' ? ' class="on"' : '') + '>ภาพรวมการลา</button><button data-seg="med"' + (DASH.seg === 'med' ? ' class="on"' : '') + '>ค่ารักษา' +
+    (d.med.todo.review.length ? ' (' + d.med.todo.review.length + ')' : '') + '</button></div>' : '';
+  if (d.med && DASH.seg === 'med') { $('dashCards').innerHTML = seg + medDashHtml(d.med); return; }
   var num = function () { return (++n) + ' · '; };
   // 1
   var c1 = d.card1;
@@ -962,10 +1019,13 @@ function renderDash() {
   var c6 = d.card6;
   html += card('c6', num() + CARD_NAMES.c6 + (f.whole ? ' ' : ' งวด ') + esc(c6.label), (c6.list.length ? c6.list.map(function (x) { return '<div class="rowx"><span>' + esc(x.nick) + '</span><span><b>' + x.days + '</b> วัน</span></div>'; }).join('')
     : '<div class="hint">ไม่มี</div>') + '<div class="hint">ตรงกับไฟล์ Excel เงินเดือนที่ส่งอัตโนมัติวันที่ 23</div>');
-  $('dashCards').innerHTML = html || '<div class="hint">ซ่อนการ์ดไว้ทั้งหมด กด "เลือกการ์ดที่แสดง"</div>';
+  $('dashCards').innerHTML = seg + (html || '<div class="hint">ซ่อนการ์ดไว้ทั้งหมด กด "เลือกการ์ดที่แสดง"</div>');
 }
 
 $('dashCards').addEventListener('click', function (e) {
+  var sg = e.target.getAttribute('data-seg');
+  if (sg) { DASH.seg = sg; renderDash(); return; }
+  if (medDashClick(e)) return;
   if (e.target.closest('#pendBtn')) { DASH.pendOpen = $('pendList').classList.contains('hidden'); show('pendList', DASH.pendOpen); return; }
   var ap = e.target.getAttribute('data-ap');
   if (ap) {
@@ -992,9 +1052,9 @@ $('dashCards').addEventListener('click', function (e) {
 });
 $('xlsBtn').addEventListener('click', function () {
   var f = dashFilter(), btn = this;
-  if (!confirm('ส่งไฟล์ Excel ตามตัวกรองที่เลือกอยู่เข้าอีเมลของคุณ?')) return;
-  var done = busy(btn, 'กำลังสร้างไฟล์...');
-  api('dashExport', f).then(function (res) { done(); alert('ส่งไฟล์แล้ว ไปที่ ' + res.to + '\nอาจใช้เวลา 1-2 นาที'); })
+  if (!confirm('ส่งรายงาน Excel ปี ' + (+f.month.slice(0, 4) + 543) + ' (สรุปผู้บริหาร ทั้งทีม) เข้าอีเมลของคุณ?')) return;
+  var done = busy(btn, 'กำลังสร้างรายงาน (ประมาณ 30 วินาที)...');
+  api('dashExport', f).then(function (res) { done(); alert('ส่งรายงานแล้ว ไปที่ ' + res.to + '\nอาจใช้เวลา 1-2 นาที'); })
     .catch(function (e) { done(); alert(e.message); });
 });
 $('pickBtn').addEventListener('click', function () {
@@ -1065,9 +1125,263 @@ $('list').addEventListener('click', function (e) {
   }
   var id = e.target.getAttribute('data-cancel');
   if (!id || !confirm('ยกเลิกใบลา ' + id + ' ?')) return;
+  // 3.3: ถ้ามีบิลค่ารักษาที่ยื่นพร้อมใบลานี้และยังยกเลิกได้ ถามว่าจะยกเลิกบิลด้วยหรือไม่
+  var bill = ME.med ? ME.med.bills.filter(function (x) { return x.leave === id && x.canCancel; })[0] : null;
+  var alsoBill = bill && confirm('ใบลานี้มีรายการเบิกค่ารักษา ' + bill.id + ' (' + money(bill.amount) + ' บาท) ยื่นไว้ด้วย\nยกเลิกรายการเบิกค่ารักษาด้วยหรือไม่?\n\nกด OK = ยกเลิกด้วย / กด Cancel = เก็บรายการเบิกไว้');
   var doneX = busy(e.target, 'กำลังยกเลิก...');
-  api('cancel', { id: id }).then(function () { doneX(true); return loadMe(); }).catch(function (err) { doneX(); alert(err.message); });
+  api('cancel', { id: id }).then(function () { return alsoBill ? api('medCancel', { id: bill.id }) : null; })
+    .then(function () { doneX(true); if (alsoBill) alert('ยกเลิกใบลาและรายการเบิก ' + bill.id + ' แล้ว'); return loadMe(); })
+    .catch(function (err) { doneX(); alert(err.message); loadMe(); });
 });
+
+/* ============================== 3.3: เบิกค่ารักษา ============================== */
+var MEDFILE = {}, MED_SW = false, MED_EDIT = null, RV = { back: 'Form', id: null, d: null };
+function money(n) { return (Math.round((+n || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function money0(n) { return Math.round(+n || 0).toLocaleString('en-US'); }
+function medFormAllowed() { return !!(ME && ME.med && $('type').value === 'SICK' && !proxyEmp()); }
+function medOn() { return MED_SW && medFormAllowed(); }
+/** ช่องกรอกบิล (ใช้ทั้งในฟอร์มลาป่วย p='mf' และแท็บค่ารักษา p='mt') คนที่ไม่มีสิทธิ์ค่ายาไม่เห็นช่องประเภท */
+function medFieldsHtml(p) {
+  return '<div class="row2"><div><label for="' + p + 'Date">วันที่ในใบเสร็จ</label><input type="date" id="' + p + 'Date" data-med="' + p + '"><div class="be" id="' + p + 'DateBE"></div></div>' +
+    '<div><label for="' + p + 'Amt">จำนวนเงิน (บาท)</label><input type="text" inputmode="decimal" id="' + p + 'Amt" placeholder="0.00" data-med="' + p + '"></div></div>' +
+    '<label for="' + p + 'Clinic">สถานที่รักษา</label><input type="text" id="' + p + 'Clinic" maxlength="100" placeholder="ระบุชื่อสถานที่รักษา">' +
+    (ME.med.medicine ? '<label>ประเภทค่าใช้จ่าย</label><div class="parts"><label><input type="radio" name="' + p + 'Kind" value="ค่ารักษา" checked>ค่ารักษา</label>' +
+      '<label><input type="radio" name="' + p + 'Kind" value="ซื้อยากินเอง">ซื้อยากินเอง</label></div>' : '') +
+    '<label for="' + p + 'Rno">เลขที่ใบเสร็จ (ถ้ามี)</label><input type="text" id="' + p + 'Rno" maxlength="40">' +
+    '<label for="' + p + 'File">แนบรูปใบเสร็จ</label><input type="file" id="' + p + 'File" accept="image/*,application/pdf" multiple data-medfile="' + p + '">' +
+    '<div class="hint" id="' + p + 'FileHint">แนบได้สูงสุด 3 รูป โปรดถ่ายให้เห็นวันที่และยอดรวมชัดเจน</div>' +
+    '<div class="est" id="' + p + 'Est"></div><div class="mednote">บริษัทจะโอนเงินเมื่อได้รับใบเสร็จตัวจริงแล้ว</div>';
+}
+function medYear(dateKey) {
+  var y = dateKey ? +dateKey.slice(0, 4) + 543 : ME.med.years[0].yearBE;
+  return ME.med.years.filter(function (x) { return x.yearBE === y; })[0] || null;
+}
+function medEstimate(p) {
+  if (!$(p + 'Est')) return;
+  var dk = $(p + 'Date').value, y = medYear(dk), amt = +String($(p + 'Amt').value).replace(/,/g, '') || 0;
+  $(p + 'DateBE').textContent = beLabel(dk);
+  var el = $(p + 'Est');
+  if (!y) { el.className = 'est bad'; el.textContent = dk ? 'ใบเสร็จวันที่นี้อยู่นอกช่วงที่เบิกได้ (ใบเสร็จของปีก่อนหน้า ต้องยื่นเบิกภายใน ' + ME.med.prevUntil + ')' : ''; return; }
+  var editing = MED_EDIT && p === 'mt', remainN = y.remainN === null ? null : y.remainN + (editing ? 1 : 0);
+  var est = Math.max(0, Math.min(amt, y.perBill || amt, y.remainAmt));
+  el.className = 'est' + (remainN === 0 || y.remainAmt <= 0 ? ' bad' : '');
+  el.innerHTML = 'สิทธิ์คงเหลือปี ' + y.yearBE + ': <b>' + (remainN === null ? 'ไม่จำกัด' : remainN) + '</b> ครั้ง · <b>' + money(y.remainAmt) + '</b> บาท' +
+    (amt ? '<br>ยอดที่คาดว่าจะได้รับ <b>' + money(est) + '</b> บาท' + (est < amt ? ' (ตามสิทธิ์)' : '') : '') +
+    (remainN === 0 ? '<br>ใช้สิทธิ์เบิกครบแล้ว' : '');
+}
+function medKind(p) { var x = document.querySelector('input[name=' + p + 'Kind]:checked'); return x ? x.value : 'ค่ารักษา'; }
+function medData(p) {
+  return { rdate: $(p + 'Date').value, amount: String($(p + 'Amt').value).replace(/,/g, ''), clinic: $(p + 'Clinic').value.trim(),
+    rno: $(p + 'Rno').value.trim(), kind: medKind(p), files: MEDFILE[p] || [] };
+}
+function medMissing(p, keepFile) {
+  var m = medData(p);
+  if (!m.rdate) return 'กรุณาระบุวันที่ในใบเสร็จ';
+  if (!(+m.amount > 0)) return 'กรุณาระบุจำนวนเงินตามใบเสร็จ';
+  if (!m.clinic) return 'กรุณาระบุชื่อสถานที่รักษา';
+  if (!m.files.length && !keepFile) return 'กรุณาแนบรูปใบเสร็จ';
+  return '';
+}
+function medReset(p) {
+  MEDFILE[p] = null;
+  if (p === 'mf') { MED_SW = false; $('medSw').classList.remove('on'); show('mfFields', false); }
+  if ($(p + 'Date')) { $(p + 'Date').value = ''; $(p + 'Amt').value = ''; $(p + 'Clinic').value = ''; $(p + 'Rno').value = ''; $(p + 'File').value = ''; medEstimate(p); }
+  submitLabel();
+}
+function medFill(p, b) {
+  $(p + 'Date').value = b.rdate || ''; $(p + 'Amt').value = b.amount ? money(b.amount) : ''; $(p + 'Clinic').value = b.clinic || ''; $(p + 'Rno').value = b.rno || '';
+  var k = document.querySelector('input[name=' + p + 'Kind][value="' + (b.kind || 'ค่ารักษา') + '"]'); if (k) k.checked = true;
+  MEDFILE[p] = null; $(p + 'File').value = '';
+  $(p + 'FileHint').textContent = b ? 'มีรูปเดิมแล้ว ถ้าแนบใหม่ รูปใหม่จะแทนรูปเดิมทั้งหมด (สูงสุด 3 รูป)' : 'แนบได้สูงสุด 3 รูป โปรดถ่ายให้เห็นวันที่และยอดรวมชัดเจน';
+  medEstimate(p);
+}
+
+function renderMed() {
+  show('tabMed', !!ME.med);
+  show('medBox', medFormAllowed());
+  if (!ME.med) return;
+  if (!$('mfDate')) { $('mfFields').innerHTML = medFieldsHtml('mf'); $('mtFields').innerHTML = medFieldsHtml('mt'); }
+  var y = ME.med.years[0], prev = ME.med.years[1];
+  $('medBal').innerHTML = '<div style="font-weight:600">สิทธิ์ค่ารักษาของฉัน ปี ' + y.yearBE + (ME.med.test ? ' <span class="badge s-รอตรวจ">ทดลอง</span>' : '') + '</div>' +
+    '<div class="bal" style="margin-top:8px"><div><b>' + (y.max || '∞') + '</b><span>สิทธิ์ (ครั้ง)</span></div><div><b>' + y.usedN + '</b><span>ใช้ไป</span></div><div><b>' + (y.remainN === null ? '∞' : y.remainN) + '</b><span>เหลือ</span></div></div>' +
+    '<div class="bal" style="margin-top:8px"><div><b>' + money0(y.cap) + '</b><span>วงเงิน (บาท)</span></div><div><b>' + money0(y.usedAmt) + '</b><span>ใช้ไป</span></div><div><b>' + money0(y.remainAmt) + '</b><span>เหลือ</span></div></div>' +
+    (y.pendN ? '<div class="hint">รอตรวจ ' + y.pendN + ' รายการ (ยังไม่หักวงเงิน)</div>' : '') +
+    (prev ? '<div class="hint">ใบเสร็จปี ' + prev.yearBE + ' (ยื่นได้ถึง ' + esc(ME.med.prevUntil) + '): เหลือ ' + (prev.remainN === null ? 'ไม่จำกัด' : prev.remainN) + ' ครั้ง · ' + money(prev.remainAmt) + ' บาท</div>' : '') +
+    '<div class="cond"><b>เงื่อนไขการเบิก</b><br>' + y.conditions.map(function (c) { return '• ' + esc(c); }).join('<br>') + '</div>' +
+    '<button class="btn" id="medNew">+ เบิกค่ารักษา (กรณีไม่ได้ลา)</button>';
+  var b = ME.med.bills;
+  $('medBills').innerHTML = '<div style="font-weight:600">รายการเบิกของฉัน</div>' + (b.length ? b.map(function (x) {
+    return '<div class="req"><b>' + money(x.amount) + ' บาท</b><span class="badge s-' + esc(x.label) + '">' + esc(x.label) + '</span>' +
+      '<div class="hint">' + [x.rdate ? 'ใบเสร็จ ' + beLabel(x.rdate) : 'ยื่น ' + beLabel(x.submitted) + (x.imported ? ' (ข้อมูลนำเข้า)' : ''), x.clinic, x.id, x.leave ? 'พร้อม ' + x.leave : '']
+        .filter(String).map(esc).join(' · ') + '</div>' +
+      (x.approved !== null && x.status !== 'ไม่อนุมัติ' ? '<div class="hint">อนุมัติ ' + money(x.approved) + ' บาท' + (x.paid ? ' · โอน ' + esc(beLabel(x.paid)) : '') + '</div>' : '') +
+      (x.label === 'รอใบเสร็จตัวจริง' ? '<div class="mednote">บริษัทจะโอนเงินเมื่อได้รับใบเสร็จตัวจริงแล้ว</div>' : '') +
+      (x.reason ? '<div class="flag">' + (x.status === 'ขอเอกสารเพิ่ม' ? 'ผู้อนุมัติขอเอกสารเพิ่มเติม: ' : 'เหตุผล: ') + esc(x.reason) + '</div>' : '') +
+      '<div class="mini">' + (x.canEdit ? '<button class="btn soft" data-medit="' + esc(x.id) + '">' + (x.status === 'ขอเอกสารเพิ่ม' ? 'แก้ไขและส่งอีกครั้ง' : 'แก้ไข') + '</button>' : '') +
+      (x.canCancel ? '<button class="btn ghost" style="margin-top:0" data-mcancel="' + esc(x.id) + '">ยกเลิกรายการนี้</button>' : '') + '</div></div>';
+  }).join('') : '<div class="hint" style="padding:8px 0">ยังไม่มีรายการเบิก</div>');
+  medEstimate('mf'); medEstimate('mt');
+}
+
+function medOpenForm(bill) {
+  MED_EDIT = bill ? bill.id : null;
+  $('medFormTitle').textContent = bill ? 'แก้ไขรายการ ' + bill.id : 'เบิกค่ารักษา (กรณีไม่ได้ลา)';
+  $('medSend').textContent = !bill ? 'ส่งเรื่องเบิกค่ารักษา' : bill.status === 'ขอเอกสารเพิ่ม' ? 'ส่งกลับให้ผู้อนุมัติตรวจอีกครั้ง' : 'บันทึกการแก้ไข';
+  if (bill) medFill('mt', bill); else { medReset('mt'); $('mtDate').value = ME.today; $('mtFileHint').textContent = 'แนบได้สูงสุด 3 รูป โปรดถ่ายให้เห็นวันที่และยอดรวมชัดเจน'; medEstimate('mt'); }
+  show('medFormErr', false); show('medFormCard', true); $('medFormCard').scrollIntoView({ block: 'start' });
+}
+
+$('medToggle').addEventListener('click', function () {
+  MED_SW = !MED_SW; $('medSw').classList.toggle('on', MED_SW); show('mfFields', MED_SW);
+  if (MED_SW && !$('mfDate').value) { $('mfDate').value = $('start').value || ME.today; medEstimate('mf'); }
+  submitLabel();
+});
+document.addEventListener('input', function (e) { var p = e.target.getAttribute && e.target.getAttribute('data-med'); if (p) medEstimate(p); });
+document.addEventListener('change', function (e) {
+  var p = e.target.getAttribute && e.target.getAttribute('data-med');
+  if (p) { medEstimate(p); return; }
+  var fp = e.target.getAttribute && e.target.getAttribute('data-medfile');
+  if (!fp) return;
+  MEDFILE[fp] = null;
+  var list = Array.prototype.slice.call(e.target.files || []);
+  if (list.length > 3) { e.target.value = ''; alert('แนบรูปใบเสร็จได้สูงสุด 3 รูป กรุณาเลือกใหม่'); return; }
+  Promise.all(list.map(readFile)).then(function (fs) { MEDFILE[fp] = fs.filter(Boolean); })
+    .catch(function (err) { e.target.value = ''; alert(err.message); });
+});
+$('paneMed').addEventListener('click', function (e) {
+  if (e.target.id === 'medNew') { medOpenForm(null); return; }
+  var ed = e.target.getAttribute('data-medit');
+  if (ed) { medOpenForm(ME.med.bills.filter(function (x) { return x.id === ed; })[0]); return; }
+  var cx = e.target.getAttribute('data-mcancel');
+  if (cx) {
+    if (!confirm('ยกเลิกรายการเบิก ' + cx + ' ?')) return;
+    var doneX = busy(e.target, 'กำลังยกเลิก...');
+    api('medCancel', { id: cx }).then(function () { doneX(true); return loadMe(); }).catch(function (err) { doneX(); alert(err.message); });
+  }
+});
+$('medBack').addEventListener('click', function () { MED_EDIT = null; show('medFormCard', false); });
+$('medSend').addEventListener('click', function () {
+  var err = medMissing('mt', !!MED_EDIT);
+  if (err) { $('medFormErr').textContent = err; show('medFormErr', true); return; }
+  show('medFormErr', false);
+  var btn = this, done = busy(btn, 'กำลังส่ง...'), editId = MED_EDIT, wasDocs = editId && ME.med.bills.some(function (x) { return x.id === editId && x.status === 'ขอเอกสารเพิ่ม'; });
+  api(editId ? 'medResubmit' : 'medSubmit', { id: editId || '', med: medData('mt') }).then(function (res) {
+    done(); MED_EDIT = null; show('medFormCard', false); medReset('mt');
+    alert((!editId ? 'ส่งเรื่องเบิกแล้ว เลขที่ ' : wasDocs ? 'ส่งกลับให้ผู้อนุมัติตรวจแล้ว ' : 'บันทึกการแก้ไขแล้ว ') + res.id + '\nบริษัทจะโอนเงินเมื่อได้รับใบเสร็จตัวจริงแล้ว');
+    return loadMe();
+  }).catch(function (e) { done(); $('medFormErr').textContent = e.message; show('medFormErr', true); });
+});
+
+/* ----- หน้าตรวจบิล (ผู้อนุมัติหลัก) ----- */
+function openReview(id, back) {
+  RV.id = id; tab('Rv'); if (back) RV.back = back;
+  $('rvBody').innerHTML = '<div class="hint">กำลังโหลดบิล ' + esc(id) + '... (ครั้งแรกระบบอ่านรูปใบเสร็จด้วย อาจใช้เวลาสักครู่)</div>';
+  api('medDetail', { id: id }).then(function (d) { RV.d = d; renderReview(); })
+    .catch(function (e) { $('rvBody').innerHTML = '<div class="error">' + esc(e.message) + '</div><button class="btn soft" data-rvback="1">กลับ</button>'; });
+}
+function renderReview() {
+  var d = RV.d, open = d.status === 'รอตรวจ' || d.status === 'ขอเอกสารเพิ่ม', ocr = d.flags.filter(function (f) { return /^OCR:/.test(f); })[0];
+  var h = '<div style="font-weight:700;font-size:18px">ตรวจบิลค่ารักษา' + (d.test ? ' <span class="badge s-รอตรวจ">ทดสอบ</span>' : '') + '</div>' +
+    '<div class="hint">' + esc(d.id) + ' · ' + esc(d.nick) + ' · <span class="badge s-' + esc(d.label) + '" style="margin:0">' + esc(d.label) + '</span></div>' +
+    (d.images || []).map(function (img, i) { return img ? '<div class="rcpt" style="margin-top:10px"><a href="' + esc(d.files[i] || '#') + '" target="_blank"><img src="' + img + '" alt="รูปใบเสร็จ ' + (i + 1) + '"></a></div>' : ''; }).join('') +
+    d.files.map(function (u, i) { return '<a class="hint" style="display:inline-block;margin:8px 10px 0 0;color:var(--blue)" href="' + esc(u) + '" target="_blank">📎 เปิดรูปใบเสร็จ' + (d.files.length > 1 ? ' ' + (i + 1) : '') + '</a>'; }).join('') +
+    (ocr ? '<div class="' + (/ตรงกับ/.test(ocr) ? 'okline' : 'flag') + '">' + (/ตรงกับ/.test(ocr) ? '✓ ' : '') + esc(ocr.replace(/^OCR:\s*/, 'ระบบอ่านรูป: ')) + '</div>' : '') +
+    '<div class="kv"><span>วันที่ในใบเสร็จ</span><b>' + esc(beLabel(d.rdate)) + '</b><span>สถานที่รักษา</span><b>' + esc(d.clinic || '-') + '</b>' +
+    '<span>ประเภท</span><b>' + esc(d.kind || '-') + '</b>' + (d.rno ? '<span>เลขที่ใบเสร็จ</span><b>' + esc(d.rno) + '</b>' : '') +
+    (d.leave ? '<span>ใบลาที่เกี่ยวข้อง</span><b>' + esc(d.leaveText || d.leave) + '</b>' : '') +
+    '<span>ยอดตามใบเสร็จ</span><b>' + money(d.amount) + '</b>' + (d.excluded ? '<span>ส่วนที่เบิกไม่ได้</span><b>' + money(d.excluded) + '</b>' : '') +
+    (d.perBill ? '<span>เพดานบิลละ</span><b>' + money(d.perBill) + '</b>' : '') +
+    '<span>สิทธิ์เหลือ</span><b>' + (d.remainN === null ? 'ไม่จำกัด' : d.remainN) + ' ครั้ง · ' + money(d.remainAmt) + '</b>' +
+    (d.approved !== null ? '<span>ยอดที่อนุมัติ</span><b>' + money(d.approved) + '</b>' : '') + '</div>' +
+    d.flags.filter(function (f) { return !/^OCR:/.test(f); }).map(function (f) { return '<div class="flag">' + esc(f) + '</div>'; }).join('') +
+    (d.note ? '<div class="hint" style="margin-top:6px">หมายเหตุ: ' + esc(d.note) + '</div>' : '');
+  if (open) {
+    h += '<label for="rvAmt">ยอดที่อนุมัติ (บาท)</label><input type="text" inputmode="decimal" id="rvAmt" value="' + money(d.calc) + '">' +
+      '<div class="hint">ระบบคำนวณให้ตามสิทธิ์ แก้ได้ (ระบบบันทึกว่ามีการแก้ยอด)</div>' +
+      '<div class="btn2"><button class="btn" data-rv="ap">อนุมัติ ' + money(d.calc) + '</button>' +
+      (d.eligible > d.calc + 0.004 ? '<button class="btn blue" data-rv="full">จ่ายเต็มบิล ' + money(d.eligible) + '</button>' : '<span></span>') + '</div>' +
+      '<div class="btn2"><button class="btn white" data-rvopen="docs">ขอเอกสารเพิ่ม</button><button class="btn redline" data-rvopen="rj">ไม่อนุมัติ</button></div>' +
+      '<div class="hidden" id="rvWhy"><div class="hint" id="rvWhyHint"></div><textarea maxlength="300" id="rvReason" style="margin-top:8px"></textarea>' +
+      '<button class="btn" id="rvWhySend" style="padding:10px;font-size:15px;margin-top:8px"></button></div>' +
+      '<div class="hint" style="margin-top:10px">"ขอเอกสารเพิ่ม" = ส่งกลับให้พนักงานแก้ไขหรือแนบรูปใหม่ในรายการเดิม ยังไม่หักสิทธิ์จนกว่าจะอนุมัติ' + (d.leave ? ' · ใบลาป่วยอนุมัติแยกจากบิล' : '') + '</div>';
+  } else if (d.status === 'อนุมัติ') {
+    h += '<button class="btn" data-rv="paid">ได้รับตัวจริงและโอนแล้ว</button>' +
+      '<div class="hint">กดเมื่อได้รับใบเสร็จตัวจริงและโอนเงินแล้วเท่านั้น ระบบจะแจ้งพนักงานทาง LINE</div>';
+  }
+  if (d.canUndo) h += '<button class="btn soft" data-rv="undo" style="margin-top:12px">ย้อนสถานะ (กรณีกดผิด)</button>';
+  h += '<details class="genRules"><summary>ประวัติ</summary><div class="hint">' + d.history.map(esc).join('<br>') + '</div></details>' +
+    '<button class="btn soft" data-rvback="1" style="margin-top:12px">กลับ</button>';
+  $('rvBody').innerHTML = h;
+}
+function rvDo(action, data, btn) {
+  var done = busy(btn, 'กำลังบันทึก...');
+  return api('medDecide', Object.assign({ id: RV.id, decision: action }, data || {})).then(function (res) {
+    done(true); alert(res.message || 'บันทึกแล้ว'); DASH.cache = {}; openReview(RV.id);
+  }).catch(function (e) { done(); alert(e.message); });
+}
+$('rvBody').addEventListener('click', function (e) {
+  if (e.target.getAttribute('data-rvback')) { DASH.cache = {}; tab(RV.back === 'Rv' ? 'Form' : RV.back); if (RV.back === 'Dash') { DASH.seg = 'med'; loadDash(); } return; }
+  var a = e.target.getAttribute('data-rv');
+  if (a === 'ap') {
+    var amt = String($('rvAmt').value).replace(/,/g, '');
+    if (!(+amt > 0)) { alert('กรุณาใส่ยอดที่อนุมัติ'); return; }
+    if (!confirm('อนุมัติ ' + money(amt) + ' บาท ให้ ' + RV.d.nick + ' ?')) return;
+    rvDo('ap', { amount: amt }, e.target); return;
+  }
+  if (a === 'full') { if (confirm('จ่ายเต็มบิล ' + money(RV.d.eligible) + ' บาท (เกินที่ระบบเสนอ ' + money(RV.d.eligible - RV.d.calc) + ' บาท)?')) rvDo('full', {}, e.target); return; }
+  if (a === 'paid') { if (confirm('ยืนยันว่าได้รับใบเสร็จตัวจริงแล้ว และโอน ' + money(RV.d.approved) + ' บาท แล้ว? ระบบจะแจ้ง ' + RV.d.nick + ' ทาง LINE')) rvDo('paid', {}, e.target); return; }
+  if (a === 'undo') {
+    var to = RV.d.status === 'จ่ายแล้ว' ? 'อนุมัติ (ยังไม่โอน)' : 'รอตรวจ';
+    var ur = prompt('ย้อนสถานะ ' + RV.d.id + ' กลับเป็น "' + to + '"\nระบบไม่แจ้งพนักงาน และบันทึกประวัติไว้\n\nกรุณาระบุเหตุผล:');
+    if (ur === null) return;
+    if (!ur.trim()) { alert('กรุณาระบุเหตุผลที่ย้อนสถานะ'); return; }
+    rvDo('undo', { reason: ur.trim() }, e.target); return;
+  }
+  var o = e.target.getAttribute('data-rvopen');
+  if (o) {
+    RV.why = o; show('rvWhy', true);
+    $('rvWhyHint').textContent = o === 'docs' ? 'ระบุเอกสารหรือสิ่งที่ต้องการให้แก้ไข เช่น รูปไม่ชัด ยอดไม่ตรงกับใบเสร็จ (ส่งถึงพนักงานทาง LINE)' : 'ระบุเหตุผลที่ไม่อนุมัติ (ส่งถึงพนักงานทาง LINE)';
+    $('rvReason').placeholder = o === 'docs' ? 'เช่น รูปไม่ชัด กรุณาถ่ายใหม่ให้เห็นยอดรวม' : 'เช่น ไม่ใช่ค่ารักษาของพนักงานเอง';
+    $('rvWhySend').textContent = o === 'docs' ? 'ส่งคำขอเอกสารเพิ่ม' : 'ยืนยันไม่อนุมัติ';
+    $('rvWhySend').className = 'btn' + (o === 'rj' ? ' red' : ''); $('rvReason').focus(); return;
+  }
+  if (e.target.id === 'rvWhySend') {
+    var why = $('rvReason').value.trim();
+    if (!why) { alert('กรุณาระบุรายละเอียด'); return; }
+    rvDo(RV.why, { reason: why }, e.target);
+  }
+});
+
+/* ----- Dashboard: ค่ารักษา ----- */
+function medDashHtml(m) {
+  var t = m.todo, row = function (x, btn) {
+    return '<div class="todo"><span>' + esc(x.nick) + ' ' + money(x.status === 'อนุมัติ' ? x.approved : x.amount) + '<div class="hint">' + esc(x.id) + (x.rdate ? ' · ใบเสร็จ ' + esc(beLabel(x.rdate)) : '') + '</div></span>' + btn + '</div>'; };
+  var todo = t.review.map(function (x) { return row(x, '<button class="sbtn o" data-mrv="' + esc(x.id) + '">' + (x.status === 'ขอเอกสารเพิ่ม' ? 'รอพนักงานแก้ไข' : 'เปิดตรวจ') + '</button>'); })
+    .concat(t.pay.map(function (x) { return row(x, '<button class="sbtn" data-mdo="paid" data-id="' + esc(x.id) + '">โอนแล้ว</button>'); }));
+  var p = m.people;
+  return '<div class="card"><div class="sub" style="margin-top:0">ต้องทำ' + (m.test ? ' (ทดลอง)' : '') + '</div>' +
+    '<div class="hint">รอตรวจ ' + t.review.length + ' · อนุมัติแล้วรอโอน ' + t.pay.length + '</div>' +
+    (todo.length ? todo.join('') : '<div class="hint" style="padding:8px 0">ไม่มีรายการค้าง</div>') +
+    '<div class="hint">กด "โอนแล้ว" เมื่อได้รับใบเสร็จตัวจริงและโอนเงินแล้ว ระบบแจ้งพนักงานทาง LINE</div></div>' +
+    '<div class="card"><div class="sub" style="margin-top:0">สิทธิ์รายคน ปี ' + m.yearBE + '</div>' +
+    '<table class="mt"><tr><th>ชื่อ</th><th>ครั้ง</th><th>อนุมัติแล้ว</th><th>เหลือ</th></tr>' +
+    p.map(function (x) { return '<tr><td>' + esc(x.nick) + '<div class="mbar"><i style="width:' + Math.min(100, x.pct) + '%"></i></div></td><td>' + x.usedN + '/' + (x.max || '∞') +
+      '</td><td>' + money0(x.usedAmt) + '</td><td>' + money0(x.remain) + '</td></tr>'; }).join('') +
+    '<tr><td><b>รวม</b></td><td><b>' + m.total.usedN + '</b></td><td><b>' + money0(m.total.usedAmt) + '</b></td><td><b>' + money0(m.total.remain) + '</b></td></tr></table>' +
+    '<div class="hint">แถบสีส้ม = % วงเงินที่ใช้ไป · ยอดใช้ไปนับบิลที่อนุมัติแล้ว (รวมที่ยังไม่โอน)</div></div>';
+}
+function medDashClick(e) {
+  var id = e.target.getAttribute('data-mrv');
+  if (id) { openReview(id, 'Dash'); return true; }
+  var a = e.target.getAttribute('data-mdo');
+  if (!a) return false;
+  var mid = e.target.getAttribute('data-id');
+  if (!confirm('ยืนยันว่าได้รับใบเสร็จตัวจริงของ ' + mid + ' แล้ว และโอนเงินแล้ว? ระบบจะแจ้งพนักงานทาง LINE')) return true;
+  var done = busy(e.target, 'กำลังบันทึก...');
+  api('medDecide', { id: mid, decision: a }).then(function (res) { done(true); alert(res.message); DASH.cache = {}; loadDash(); })
+    .catch(function (err) { done(); alert(err.message); });
+  return true;
+}
 
 start();
 </script>
