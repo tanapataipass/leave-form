@@ -38,6 +38,10 @@ var LIFF_VERSION = '3.3.0';            // ห้ามแก้ (ใช้ตร
   .be { font-size:14px; color:var(--line-dark); margin-top:4px; font-weight:600; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .row2 > div { min-width:0; }
+  .pvbar { background:#FFF4E5; border-bottom:1px solid #F0C36D; padding:8px 16px; } .pvbar label { margin:0 0 4px; font-size:13px; } .pvbar select { padding:8px 10px; font-size:15px; }
+  /* iPhone: ช่องวันที่มีความกว้างขั้นต่ำของตัวเอง ทำให้ล้นช่องข้าง ๆ ตั้งให้กว้างเท่าช่องอื่น */
+  input[type=date] { -webkit-appearance:none; appearance:none; min-width:0; max-width:100%; display:block; box-sizing:border-box; min-height:46px; }
+  input[type=date]::-webkit-date-and-time-value { text-align:left; }
   .parts { display:flex; gap:8px; flex-wrap:wrap; }
   .parts label { font-weight:400; margin:0; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; }
   .parts input { margin-right:6px; }
@@ -184,6 +188,7 @@ var LIFF_VERSION = '3.3.0';            // ห้ามแก้ (ใช้ตร
 <body>
 <header><h1>ระบบลางาน</h1><div id="who">กำลังโหลด...</div></header>
 <div id="busyBar" class="busy hidden" role="status" aria-live="polite"><span class="spin"></span><span id="busyText"></span></div>
+<div id="pvBar" class="pvbar hidden"><label for="pvSel">มุมมอง</label><select id="pvSel"></select><div id="pvNote" class="hint"></div></div>
 <div id="testBanner" class="test hidden">โหมดทดสอบ: ใบลาที่ยื่นจะไม่ถูกนับจริง</div>
 <div id="mailBanner" class="test hidden">โควตาข้อความ LINE เดือนนี้ใกล้เต็ม ผลการลาและข่าวว่าใครลาจะส่งทางอีเมลจนถึงสิ้นเดือน กรุณาเช็กอีเมล</div>
 <main>
@@ -211,7 +216,7 @@ var LIFF_VERSION = '3.3.0';            // ห้ามแก้ (ใช้ตร
   </section>
 
   <section id="app" class="hidden">
-    <div class="tabs"><button id="tabForm" class="on">ยื่นลา</button><button id="tabList">ใบลาของฉัน</button><button id="tabMed" class="hidden">ค่ารักษา</button><button id="tabDg" class="hidden">ฝากอนุมัติ</button><button id="tabCal">ปฏิทิน</button><button id="tabHol">วันหยุด</button><button id="tabDash" class="hidden">Dashboard</button></div>
+    <div class="tabs"><button id="tabForm" class="on">ยื่นลา</button><button id="tabList">ใบลาของฉัน</button><button id="tabMed" class="hidden">ค่ารักษา</button><button id="tabMb" class="hidden">ตรวจบิล</button><button id="tabDg" class="hidden">ฝากอนุมัติ</button><button id="tabCal">ปฏิทิน</button><button id="tabHol">วันหยุด</button><button id="tabDash" class="hidden">Dashboard</button></div>
 
     <div id="paneForm">
       <div class="card hidden" id="proxyCard">
@@ -294,6 +299,12 @@ var LIFF_VERSION = '3.3.0';            // ห้ามแก้ (ใช้ตร
       <div class="card" id="medBills"></div>
     </div>
     <!-- 3.3: หน้าตรวจบิล (ผู้อนุมัติหลัก) เปิดจากการ์ดใน LINE หรือ Dashboard -->
+    <div id="paneMb" class="hidden"><div class="card">
+      <div style="font-weight:700;font-size:18px">ตรวจบิลค่ารักษา <span id="mbTest"></span></div>
+      <div class="row2" style="margin-top:8px"><div><label for="mbEmp">พนักงาน</label><select id="mbEmp"><option value="">ทุกคน</option></select></div>
+        <div><label for="mbSt">สถานะ</label><select id="mbSt"><option value="">ทั้งหมด</option><option>รอตรวจ</option><option>ขอเอกสารเพิ่ม</option><option>รอใบเสร็จตัวจริง</option><option>โอนแล้ว</option><option>ไม่อนุมัติ</option><option>ยกเลิก</option></select></div></div>
+      <div id="mbList"><div class="hint" style="padding:8px 0">กำลังโหลด...</div></div>
+      <div class="hint" style="margin-top:8px">เลือกชื่อเพื่อดูเฉพาะคนนั้น · กด "เปิด" เข้าหน้าตรวจบิล (อนุมัติ / โอนแล้ว / ย้อนสถานะ)</div></div></div>
     <div id="paneRv" class="hidden"><div class="card" id="rvBody"><div class="hint">กำลังโหลด...</div></div></div>
     <div id="paneDg" class="hidden">
       <div class="card">
@@ -379,6 +390,7 @@ var LIFF_VERSION = '3.3.0';            // ห้ามแก้ (ใช้ตร
 
 <script>
 var ME = null, ID_TOKEN = null, previewTimer = null, lastPreviewOk = false;
+var PV = ''; try { PV = localStorage.getItem('pv') || ''; } catch (e) { PV = ''; }
 var TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 var TH_D = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
 function $(id) { return document.getElementById(id); }
@@ -395,6 +407,7 @@ var PERF_ACTS = ['me', 'preview', 'submit', 'calendar', 'dashboard', 'quota'];
 function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
 function api(action, data) {
   var body = Object.assign({}, data || {}, { action: action, idToken: ID_TOKEN, v: LIFF_VERSION });
+  if (PV) body.pv = PV; // 3.3 มุมมองพนักงาน (เฉพาะผู้อนุมัติหลัก เซิร์ฟเวอร์ตรวจสิทธิ์อีกครั้ง)
   if (PERF_Q.length) { body.perf = PERF_Q; PERF_Q = []; }
   var t0 = now();
   // ส่งเป็น text/plain เพื่อให้ Apps Script รับได้โดยไม่ติด CORS
@@ -440,7 +453,7 @@ function loadMe() {
     }
     ME = res;
     $('who').textContent = res.emp.nick + ' (' + res.emp.id + ')';
-    show('testBanner', res.testMode); show('mailBanner', !!res.mailMode);
+    show('testBanner', res.testMode); show('mailBanner', !!res.mailMode); renderPreviewBar();
     show('register', false);
     $('rulesFull').innerHTML = rulesHtml((res.rules || []).filter(function (x) { return x.code === 'GENERAL' || x.code === 'PDPA'; }));
     if (!res.rulesAccepted) { $('gateHint').textContent = res.rulesChanged ? 'กติกามีการเปลี่ยนแปลง กรุณาอ่านและกดยอมรับใหม่ก่อนยื่นลา' : 'กรุณาอ่านและกดยอมรับก่อนยื่นลา'; $('gateRules').innerHTML = rulesHtml(res.rules); show('gate', true); show('app', false); return; }
@@ -448,13 +461,14 @@ function loadMe() {
     if (!$('cat').options.length) $('cat').innerHTML = '<option value="">-- เลือกหมวด --</option>' + res.personalCats.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
     renderDelegate(); renderProxy(); renderBalances(); renderTypes(); renderList(); renderMed();
     if (!$('start').value) { $('start').value = res.today; $('end').value = res.today; onDatesChanged(); }
-    show('tabDash', !!res.isViewer);
+    show('tabDash', !!res.isViewer); show('tabMb', !!res.medApprover);
     if (!OPENED) { OPENED = true; PERF_Q.push(['open', Math.round(now())]); prefetch(); }
     else { CAL.cache = {}; CAL.years = {}; CAL.hol = {}; }
     if (START_TAB) { var t = START_TAB; START_TAB = null; if (t === 'calendar') tab('Cal'); else if (t === 'holidays') tab('Hol'); else if (t === 'list') tab('List');
       else if (t === 'delegate' && ME.delegate && ME.delegate.backup) tab('Dg'); else if (t === 'dashboard' && res.isViewer) tab('Dash');
       else if (t === 'medical') { if (res.medApprover && res.isViewer) { DASH.seg = 'med'; tab('Dash'); } else if (res.med) tab('Med'); }
-      else if (t === 'medreview' && res.medApprover && START_Q.get('id')) openReview(START_Q.get('id'), 'Form'); }
+      else if (t === 'medreview' && res.medApprover && START_Q.get('id')) openReview(START_Q.get('id'), 'Form');
+      else if (t === 'medbills' && res.medApprover) tab('Mb'); }
     if (START_QUICK === 'sick') { START_QUICK = null; quickSick(); }
   }).catch(function (e) { fatal(e.message); });
 }
@@ -748,15 +762,17 @@ $('regBtn').addEventListener('click', function () {
 });
 
 function tab(name) {
-  ['Form', 'List', 'Med', 'Dg', 'Cal', 'Hol', 'Dash', 'Rv'].forEach(function (n) { if ($('tab' + n)) $('tab' + n).classList.toggle('on', n === name); show('pane' + n, n === name); });
+  ['Form', 'List', 'Med', 'Mb', 'Dg', 'Cal', 'Hol', 'Dash', 'Rv'].forEach(function (n) { if ($('tab' + n)) $('tab' + n).classList.toggle('on', n === name); show('pane' + n, n === name); });
   if (name !== 'Rv') RV.back = name;
   if (name === 'Cal') loadCal(CAL.month || ME.today.slice(0, 7));
   if (name === 'Hol') { if (CAL.annY === null) CAL.annY = +ME.today.slice(0, 4); renderAnnual(); }
   if (name === 'Dash') { loadDash(); loadQuota(); }
+  if (name === 'Mb') loadMb();
 }
 $('tabForm').addEventListener('click', function () { tab('Form'); });
 $('tabList').addEventListener('click', function () { tab('List'); });
 $('tabMed').addEventListener('click', function () { tab('Med'); });
+$('tabMb').addEventListener('click', function () { MB.data = null; tab('Mb'); });
 $('tabDg').addEventListener('click', function () { tab('Dg'); });
 $('tabCal').addEventListener('click', function () { tab('Cal'); });
 $('tabHol').addEventListener('click', function () { tab('Hol'); });
@@ -1298,7 +1314,7 @@ function renderReview() {
   if (open) {
     h += '<label for="rvAmt">ยอดที่อนุมัติ (บาท)</label><input type="text" inputmode="decimal" id="rvAmt" value="' + money(d.calc) + '">' +
       '<div class="hint">ระบบคำนวณให้ตามสิทธิ์ แก้ได้ (ระบบบันทึกว่ามีการแก้ยอด)</div>' +
-      '<div class="btn2"><button class="btn" data-rv="ap">อนุมัติ ' + money(d.calc) + '</button>' +
+      '<div class="btn2"><button class="btn" data-rv="ap" id="rvApBtn">อนุมัติ ' + money(d.calc) + '</button>' +
       (d.eligible > d.calc + 0.004 ? '<button class="btn blue" data-rv="full">จ่ายเต็มบิล ' + money(d.eligible) + '</button>' : '<span></span>') + '</div>' +
       '<div class="btn2"><button class="btn white" data-rvopen="docs">ขอเอกสารเพิ่ม</button><button class="btn redline" data-rvopen="rj">ไม่อนุมัติ</button></div>' +
       '<div class="hidden" id="rvWhy"><div class="hint" id="rvWhyHint"></div><textarea maxlength="300" id="rvReason" style="margin-top:8px"></textarea>' +
@@ -1313,6 +1329,16 @@ function renderReview() {
     '<button class="btn soft" data-rvback="1" style="margin-top:12px">กลับ</button>';
   $('rvBody').innerHTML = h;
 }
+/** 3.3: ระบบอ่านรูปแล้วไม่พบยอดที่พนักงานกรอก = เตือนอีกชั้นก่อนอนุมัติ (ไม่บล็อก) */
+function rvOcrWarn() {
+  var f = RV.d.flags.filter(function (x) { return /^OCR:.*ไม่พบยอด/.test(x); })[0];
+  return f ? '\n\n⚠️ ระบบไม่พบยอด ' + money(RV.d.amount) + ' ที่พนักงานกรอกในรูปใบเสร็จ' + (f.indexOf('ใกล้เคียง') > 0 ? ' (' + f.replace(/^.*ใกล้เคียงที่อ่านได้ในรูป:\s*/, 'ในรูปมี ').replace(/\s*กรุณาตรวจด้วยตา$/, '') + ')' : '') + '\nตรวจรูปแล้วใช่หรือไม่?' : '';
+}
+document.addEventListener('input', function (e) {
+  if (e.target.id !== 'rvAmt' || !$('rvApBtn')) return;
+  var v = +String(e.target.value).replace(/,/g, '');
+  $('rvApBtn').textContent = 'อนุมัติ ' + (v > 0 ? money(v) : '');
+});
 function rvDo(action, data, btn) {
   var done = busy(btn, 'กำลังบันทึก...');
   return api('medDecide', Object.assign({ id: RV.id, decision: action }, data || {})).then(function (res) {
@@ -1320,15 +1346,15 @@ function rvDo(action, data, btn) {
   }).catch(function (e) { done(); alert(e.message); });
 }
 $('rvBody').addEventListener('click', function (e) {
-  if (e.target.getAttribute('data-rvback')) { DASH.cache = {}; tab(RV.back === 'Rv' ? 'Form' : RV.back); if (RV.back === 'Dash') { DASH.seg = 'med'; loadDash(); } return; }
+  if (e.target.getAttribute('data-rvback')) { DASH.cache = {}; MB.data = null; tab(RV.back === 'Rv' ? 'Form' : RV.back); if (RV.back === 'Dash') { DASH.seg = 'med'; loadDash(); } return; }
   var a = e.target.getAttribute('data-rv');
   if (a === 'ap') {
     var amt = String($('rvAmt').value).replace(/,/g, '');
     if (!(+amt > 0)) { alert('กรุณาใส่ยอดที่อนุมัติ'); return; }
-    if (!confirm('อนุมัติ ' + money(amt) + ' บาท ให้ ' + RV.d.nick + ' ?')) return;
+    if (!confirm('อนุมัติ ' + money(amt) + ' บาท ให้ ' + RV.d.nick + ' ?' + rvOcrWarn())) return;
     rvDo('ap', { amount: amt }, e.target); return;
   }
-  if (a === 'full') { if (confirm('จ่ายเต็มบิล ' + money(RV.d.eligible) + ' บาท (เกินที่ระบบเสนอ ' + money(RV.d.eligible - RV.d.calc) + ' บาท)?')) rvDo('full', {}, e.target); return; }
+  if (a === 'full') { if (confirm('จ่ายเต็มบิล ' + money(RV.d.eligible) + ' บาท (เกินที่ระบบเสนอ ' + money(RV.d.eligible - RV.d.calc) + ' บาท)?' + rvOcrWarn())) rvDo('full', {}, e.target); return; }
   if (a === 'paid') { if (confirm('ยืนยันว่าได้รับใบเสร็จตัวจริงแล้ว และโอน ' + money(RV.d.approved) + ' บาท แล้ว? ระบบจะแจ้ง ' + RV.d.nick + ' ทาง LINE')) rvDo('paid', {}, e.target); return; }
   if (a === 'undo') {
     var to = RV.d.status === 'จ่ายแล้ว' ? 'อนุมัติ (ยังไม่โอน)' : 'รอตรวจ';
@@ -1382,6 +1408,66 @@ function medDashClick(e) {
     .catch(function (err) { done(); alert(err.message); });
   return true;
 }
+
+/* ----- 3.3: แท็บตรวจบิล (ผู้อนุมัติหลัก) ----- */
+var MB = { data: null, more: 20 };
+function loadMb() {
+  if (MB.data) return renderMb();
+  $('mbList').innerHTML = '<div class="hint" style="padding:8px 0">กำลังโหลด...</div>';
+  api('medBills').then(function (d) {
+    MB.data = d; MB.more = 20;
+    var cur = $('mbEmp').value;
+    $('mbEmp').innerHTML = '<option value="">ทุกคน</option>' + d.people.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.nick) + '</option>'; }).join('');
+    $('mbEmp').value = d.people.some(function (p) { return p.id === cur; }) ? cur : '';
+    $('mbTest').innerHTML = d.test ? '<span class="badge s-รอตรวจ">ทดสอบ</span>' : '';
+    renderMb();
+  }).catch(function (e) { $('mbList').innerHTML = '<div class="error">' + esc(e.message) + '</div>'; });
+}
+function renderMb() {
+  var who = $('mbEmp').value, st = $('mbSt').value;
+  var list = MB.data.bills.filter(function (b) { return (!who || b.emp === who) && (!st || b.label === st); });
+  var todo = list.filter(function (b) { return ['รอตรวจ', 'ขอเอกสารเพิ่ม', 'อนุมัติ'].indexOf(b.status) >= 0; });
+  var rest = list.filter(function (b) { return todo.indexOf(b) < 0; });
+  var row = function (b) {
+    var when = b.status === 'จ่ายแล้ว' && b.paid ? 'โอน ' + beLabel(b.paid) : b.status === 'อนุมัติ' && b.decided ? 'อนุมัติ ' + beLabel(b.decided) : b.rdate ? 'ใบเสร็จ ' + beLabel(b.rdate) : 'ยื่น ' + beLabel(b.submitted);
+    var open = b.status === 'รอตรวจ' || b.status === 'ขอเอกสารเพิ่ม';
+    return '<div class="todo"><span>' + esc(b.nick) + ' ' + money(b.status === 'อนุมัติ' || b.status === 'จ่ายแล้ว' ? b.approved : b.amount) +
+      '<div class="hint">' + esc(b.id) + ' · ' + esc(when) + ' <span class="badge s-' + esc(b.label) + '" style="margin:0">' + esc(b.label) + '</span></div></span>' +
+      '<button class="sbtn' + (b.status === 'อนุมัติ' ? '' : ' o') + '" data-mbopen="' + esc(b.id) + '">' + (open ? 'เปิดตรวจ' : 'เปิด') + '</button></div>';
+  };
+  $('mbList').innerHTML = (todo.length ? '<div class="sub">ต้องทำ</div>' + todo.map(row).join('') : '') +
+    '<div class="sub">บิลล่าสุด</div>' + (rest.length ? rest.slice(0, MB.more).map(row).join('') : '<div class="hint" style="padding:8px 0">ไม่มีรายการ</div>') +
+    (rest.length > MB.more ? '<button class="btn soft" data-mbmore="1" style="margin-top:10px">ดูเพิ่ม (' + (rest.length - MB.more) + ')</button>' : '');
+}
+$('mbEmp').addEventListener('change', function () { MB.more = 20; renderMb(); });
+$('mbSt').addEventListener('change', function () { MB.more = 20; renderMb(); });
+$('mbList').addEventListener('click', function (e) {
+  var id = e.target.getAttribute('data-mbopen');
+  if (id) { openReview(id, 'Mb'); return; }
+  if (e.target.getAttribute('data-mbmore')) { MB.more += 20; renderMb(); }
+});
+
+/* ----- 3.3: มุมมองพนักงาน (ผู้อนุมัติหลัก เมื่อ Settings OwnerPreview = TRUE) ----- */
+function renderPreviewBar() {
+  var pv = ME.preview;
+  if (!pv) { if (PV) { PV = ''; try { localStorage.removeItem('pv'); } catch (e) {} } show('pvBar', false); return; }
+  $('pvSel').innerHTML = '<option value="">ของฉัน (ผู้อนุมัติ)</option><option value="self">มุมมองพนักงาน: สิทธิ์ของฉัน</option>' +
+    pv.staff.map(function (s) { return '<option value="' + esc(s.id) + '">มุมมองพนักงาน: จำลองสิทธิ์ตาม ' + esc(s.nick) + '</option>'; }).join('');
+  $('pvSel').value = pv.on ? pv.sim : '';
+  $('pvNote').textContent = pv.on ? 'คุณเห็นหน้าจอเหมือนพนักงาน' + (pv.sim === 'self' ? '' : ' และใช้สิทธิ์ของ ' + pv.simName) + ' · ใบลาและบิลบันทึกในชีตทดสอบ ไม่นับจริง · เลือก "ของฉัน" เพื่ออนุมัติ' : 'เลือกมุมมองพนักงานเพื่อทดสอบหน้าจอและสิทธิ์ของพนักงาน';
+  show('pvBar', true);
+}
+$('pvSel').addEventListener('change', function () {
+  var v = this.value, was = !!PV, sel = this;
+  PV = v; try { if (v) localStorage.setItem('pv', v); else localStorage.removeItem('pv'); } catch (e) {}
+  sel.disabled = true;
+  var menu = was === !!v ? Promise.resolve() : api('previewMenu', { on: !!v }).catch(function () {});
+  menu.then(function () {
+    $('mfFields').innerHTML = ''; $('mtFields').innerHTML = ''; MED_SW = false; $('medSw').classList.remove('on'); show('mfFields', false); show('medFormCard', false);
+    MB.data = null; DASH.cache = {}; tab('Form');
+    return loadMe();
+  }).then(function () { sel.disabled = false; });
+});
 
 start();
 </script>
