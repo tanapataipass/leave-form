@@ -15,7 +15,7 @@ var CONFIG = {
   LIFF_ID: '2012182171-opVufJsC',              // เช่น 2001234567-AbCdEfGh
   API_URL: 'https://script.google.com/macros/s/AKfycbykdhtSVQ9zuLNOl3aw-snP84cvil4H1kuK44L9dyILk-HcJ7Sv1ZIeWpD8yY6hriOhPg/exec'           // URL ของ Web App ที่ลงท้ายด้วย /exec
 };
-var LIFF_VERSION = '3.3.0';            // ห้ามแก้ (ใช้ตรวจว่าไฟล์ตรงรุ่นกับ Apps Script)
+var LIFF_VERSION = '3.3.1';            // ห้ามแก้ (ใช้ตรวจว่าไฟล์ตรงรุ่นกับ Apps Script)
 </script>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
@@ -55,7 +55,7 @@ var LIFF_VERSION = '3.3.0';            // ห้ามแก้ (ใช้ตร
   .preview { border-radius:10px; padding:10px 12px; margin-top:14px; background:#eefaf2; }
   .mednote { background:#EAF2FB; color:#0B4A8B; border-radius:8px; padding:8px 10px; margin-top:6px; font-size:14px; line-height:1.5; }
   .flag { background:var(--warn-bg); color:var(--warn); border-radius:8px; padding:6px 10px; margin-top:6px; font-size:14px; }
-  .error { background:var(--err-bg); color:var(--err); border-radius:10px; padding:10px 12px; margin-top:12px; }
+  .error { background:var(--err-bg); color:var(--err); border-radius:10px; padding:10px 12px; margin-top:12px; white-space:pre-line; }
   .test { background:#fff3cd; color:#7a5b00; padding:8px 16px; font-size:14px; text-align:center; }
   .req { border-bottom:1px solid var(--border); padding:10px 0; }
   .req:last-child { border:0; }
@@ -412,11 +412,21 @@ function api(action, data) {
   var t0 = now();
   // ส่งเป็น text/plain เพื่อให้ Apps Script รับได้โดยไม่ติด CORS
   return fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(body) })
-    .then(function (r) { return r.json(); })
+    .catch(function () { throw new Error(netFailText(action)); })
+    .then(function (r) { if (/^(medSubmit|medResubmit|submit)$/.test(action)) NETFAIL[action] = 0; return r.json(); })
     .then(function (res) {
       if (PERF_Q.length < 10) PERF_Q.push([PERF_ACTS.indexOf(action) >= 0 ? action : 'other', Math.round(now() - t0)]);
       if (!res.ok) throw new Error(res.error || 'ระบบขัดข้อง'); return res;
     });
+}
+
+/** 3.3: มือถือไม่ได้รับคำตอบ (iPhone ขึ้น "Load failed") ระบบอาจบันทึกแล้วก็ได้ จึงให้ตรวจรายการก่อนส่งซ้ำ / ครั้งที่ 2 ขึ้นไปมีคำแนะนำ */
+var NETFAIL = {};
+function netFailText(action) {
+  if (!/^(medSubmit|medResubmit|submit)$/.test(action)) return 'ไม่ได้รับคำตอบจากระบบ ตรวจสัญญาณอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง';
+  var n = NETFAIL[action] = (NETFAIL[action] || 0) + 1, where = action === 'submit' ? '"ใบลาของฉัน"' : '"รายการเบิกของฉัน" ด้านล่าง';
+  if (n < 2) return 'ส่งไม่สำเร็จ โปรดดู ' + where + ' ก่อน ถ้ายังไม่มีรายการนี้ ให้แนบรูปใหม่อีกครั้ง แล้วกดส่ง';
+  return 'ส่งไม่สำเร็จ ' + n + ' ครั้ง ลองทำตามนี้:\n1) เปลี่ยนไปใช้ Wi-Fi หรือย้ายไปที่สัญญาณดีกว่า\n2) แนบครั้งละ 1–2 รูป ส่งก่อน แล้วกด "แก้ไข" เพื่อแนบรูปที่เหลือภายหลัง\n3) ถ้ายังไม่ได้ ติดต่อผู้อนุมัติ';
 }
 
 /** 3.1: ปุ่มที่ต้องรอ เป็นสีเทา + ข้อความบอกว่ากำลังทำอะไร และมีแถบสถานะด้านล่างจอ / คืนฟังก์ชันสำหรับคืนปุ่มเป็นแบบเดิม */
@@ -682,14 +692,15 @@ function readFile(f) {
       return fr.readAsDataURL(f);
     }
     if (!/^image\//.test(f.type)) return reject(new Error('แนบได้เฉพาะรูปหรือ PDF'));
-    // ย่อรูปจากกล้องมือถือให้ไม่เกิน 1600 px เพื่อให้ส่งเร็วและไม่เกิน 5 MB
+    // ย่อรูปจากกล้องมือถือให้ไม่เกิน 1280 px (3.3: จาก 1600 ส่งเร็วขึ้น ลด Load failed) คุณภาพ JPEG สูงขึ้นเพื่อให้ตัวเลขยังคม
     fr.onload = function () {
       var img = new Image();
       img.onload = function () {
-        var s = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        var s = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
         c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        resolve({ mime: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.82).split(',')[1] });
+        var g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+        g.drawImage(img, 0, 0, c.width, c.height);
+        resolve({ mime: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.88).split(',')[1] });
       };
       img.onerror = function () { reject(new Error('เปิดรูปไม่ได้ ลองถ่ายใหม่หรือใช้ไฟล์ JPG/PNG')); };
       img.src = fr.result;
@@ -1166,6 +1177,7 @@ function medFieldsHtml(p) {
     '<label for="' + p + 'Rno">เลขที่ใบเสร็จ (ถ้ามี)</label><input type="text" id="' + p + 'Rno" maxlength="40">' +
     '<label for="' + p + 'File">แนบรูปใบเสร็จ</label><input type="file" id="' + p + 'File" accept="image/*,application/pdf" multiple data-medfile="' + p + '">' +
     '<div class="hint" id="' + p + 'FileHint">แนบได้สูงสุด 3 รูป โปรดถ่ายให้เห็นวันที่และยอดรวมชัดเจน</div>' +
+    '<div class="hidden" id="' + p + 'ReplWrap"><label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:8px"><input type="checkbox" id="' + p + 'Repl" style="width:auto;margin:0"> แทนรูปเดิมทั้งหมด (ไม่เลือก = เพิ่มต่อจากรูปเดิม)</label></div>' +
     '<div class="est" id="' + p + 'Est"></div><div class="mednote">บริษัทจะโอนเงินเมื่อได้รับใบเสร็จตัวจริงแล้ว</div>';
 }
 function medYear(dateKey) {
@@ -1188,7 +1200,7 @@ function medEstimate(p) {
 function medKind(p) { var x = document.querySelector('input[name=' + p + 'Kind]:checked'); return x ? x.value : 'ค่ารักษา'; }
 function medData(p) {
   return { rdate: $(p + 'Date').value, amount: String($(p + 'Amt').value).replace(/,/g, ''), clinic: $(p + 'Clinic').value.trim(),
-    rno: $(p + 'Rno').value.trim(), kind: medKind(p), files: MEDFILE[p] || [] };
+    rno: $(p + 'Rno').value.trim(), kind: medKind(p), files: MEDFILE[p] || [], replace: !!($(p + 'Repl') && $(p + 'Repl').checked) };
 }
 function medMissing(p, keepFile) {
   var m = medData(p);
@@ -1198,8 +1210,9 @@ function medMissing(p, keepFile) {
   if (!m.files.length && !keepFile) return 'กรุณาแนบรูปใบเสร็จ';
   return '';
 }
+var MED_OLDN = {};
 function medReset(p) {
-  MEDFILE[p] = null;
+  MEDFILE[p] = null; MED_OLDN[p] = 0; if ($(p + 'Repl')) { $(p + 'Repl').checked = false; show(p + 'ReplWrap', false); }
   if (p === 'mf') { MED_SW = false; $('medSw').classList.remove('on'); show('mfFields', false); }
   if ($(p + 'Date')) { $(p + 'Date').value = ''; $(p + 'Amt').value = ''; $(p + 'Clinic').value = ''; $(p + 'Rno').value = ''; $(p + 'File').value = ''; medEstimate(p); }
   submitLabel();
@@ -1208,7 +1221,10 @@ function medFill(p, b) {
   $(p + 'Date').value = b.rdate || ''; $(p + 'Amt').value = b.amount ? money(b.amount) : ''; $(p + 'Clinic').value = b.clinic || ''; $(p + 'Rno').value = b.rno || '';
   var k = document.querySelector('input[name=' + p + 'Kind][value="' + (b.kind || 'ค่ารักษา') + '"]'); if (k) k.checked = true;
   MEDFILE[p] = null; $(p + 'File').value = '';
-  $(p + 'FileHint').textContent = b ? 'มีรูปเดิมแล้ว ถ้าแนบใหม่ รูปใหม่จะแทนรูปเดิมทั้งหมด (สูงสุด 3 รูป)' : 'แนบได้สูงสุด 3 รูป โปรดถ่ายให้เห็นวันที่และยอดรวมชัดเจน';
+  var n = b ? (+b.files || 0) : 0;
+  $(p + 'FileHint').textContent = b ? 'มีรูปเดิม ' + n + ' รูป รูปที่แนบจะเพิ่มต่อจากรูปเดิม (แนบเพิ่มได้อีก ' + Math.max(0, 3 - n) + ' รูป) ถ้าต้องการเปลี่ยนรูปทั้งหมด ให้เลือก "แทนรูปเดิมทั้งหมด"' : 'แนบได้สูงสุด 3 รูป โปรดถ่ายให้เห็นวันที่และยอดรวมชัดเจน';
+  if ($(p + 'Repl')) { $(p + 'Repl').checked = false; show(p + 'ReplWrap', !!b); }
+  MED_OLDN[p] = n;
   medEstimate(p);
 }
 
@@ -1261,6 +1277,8 @@ document.addEventListener('change', function (e) {
   MEDFILE[fp] = null;
   var list = Array.prototype.slice.call(e.target.files || []);
   if (list.length > 3) { e.target.value = ''; alert('แนบรูปใบเสร็จได้สูงสุด 3 รูป กรุณาเลือกใหม่'); return; }
+  var old = MED_OLDN[fp] || 0;
+  if (old && !$(fp + 'Repl').checked && old + list.length > 3) { e.target.value = ''; alert('มีรูปเดิม ' + old + ' รูป แนบเพิ่มได้อีก ' + Math.max(0, 3 - old) + ' รูป\nถ้าต้องการเปลี่ยนรูปทั้งหมด ให้เลือก "แทนรูปเดิมทั้งหมด" ก่อน แล้วแนบใหม่'); return; }
   Promise.all(list.map(readFile)).then(function (fs) { MEDFILE[fp] = fs.filter(Boolean); })
     .catch(function (err) { e.target.value = ''; alert(err.message); });
 });
@@ -1464,7 +1482,7 @@ $('pvSel').addEventListener('change', function () {
   var menu = was === !!v ? Promise.resolve() : api('previewMenu', { on: !!v }).catch(function () {});
   menu.then(function () {
     $('mfFields').innerHTML = ''; $('mtFields').innerHTML = ''; MED_SW = false; $('medSw').classList.remove('on'); show('mfFields', false); show('medFormCard', false);
-    MB.data = null; DASH.cache = {}; tab('Form');
+    MB.data = null; DASH.cache = {}; CAL.cache = {}; CAL.years = {}; tab('Form');
     return loadMe();
   }).then(function () { sel.disabled = false; });
 });
